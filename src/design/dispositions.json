@@ -1,0 +1,933 @@
+{
+  "$schema": "./dispositions.schema.md",
+  "_doc": [
+    "Every slot declared by a component must either be governed by a family in",
+    "families.css, or appear here with an explicit disposition. The build gate",
+    "(scripts/check-design-coverage.mjs) fails otherwise.",
+    "",
+    "structural      \u2014 carries no paint of its own (portal, root, collection).",
+    "alias           \u2014 painted through another contract; `of` names it. `conditional`",
+    "                  marks an alias that only holds for some compositions.",
+    "adapter         \u2014 treated outside the families; `owner` and `rule` say where.",
+    "shape-exception \u2014 deliberately keeps a shape the presets do not change.",
+    "unresolved      \u2014 painted, no treatment yet. This is DEBT, kept visible on",
+    "                  purpose. The exact set is recorded in \"unresolvedSlots\";",
+    "                  the gate fails on any slot newly parked here, so new debt",
+    "                  cannot hide among the old."
+  ],
+  "unresolvedSlots": [
+    "accordion-content",
+    "accordion-item",
+    "accordion-trigger-icon",
+    "alert-dialog-overlay",
+    "attachment-actions",
+    "attachment-content",
+    "attachment-group",
+    "avatar-group",
+    "breadcrumb-list",
+    "breadcrumb-separator",
+    "bubble",
+    "bubble-group",
+    "bubble-reactions",
+    "card-action",
+    "carousel-content",
+    "carousel-item",
+    "chart",
+    "checkbox-indicator",
+    "collapsible-content",
+    "combobox-chips",
+    "combobox-empty",
+    "combobox-separator",
+    "combobox-value",
+    "command-empty",
+    "command-input",
+    "command-separator",
+    "context-menu-separator",
+    "context-menu-shortcut",
+    "dialog-overlay",
+    "drawer-footer",
+    "drawer-header",
+    "drawer-overlay",
+    "drawer-swipe-handle",
+    "dropdown-menu-separator",
+    "empty-content",
+    "field-content",
+    "field-separator",
+    "field-separator-content",
+    "input-otp",
+    "input-otp-separator",
+    "item-content",
+    "item-footer",
+    "item-header",
+    "kbd-group",
+    "menubar-separator",
+    "message",
+    "message-footer",
+    "message-group",
+    "message-header",
+    "message-scroller",
+    "message-scroller-content",
+    "message-scroller-item",
+    "native-select-icon",
+    "native-select-optgroup",
+    "native-select-option",
+    "native-select-wrapper",
+    "navigation-menu-indicator",
+    "navigation-menu-item",
+    "navigation-menu-list",
+    "pagination-content",
+    "pagination-item",
+    "popover-header",
+    "progress",
+    "questionnaire-actions",
+    "questionnaire-choice-description",
+    "questionnaire-choice-indicator-check",
+    "questionnaire-choice-input",
+    "questionnaire-choice-label",
+    "questionnaire-choice-shortcut",
+    "questionnaire-choices",
+    "questionnaire-error",
+    "questionnaire-input-wrapper",
+    "questionnaire-progress",
+    "radio-group-indicator",
+    "resizable-handle",
+    "scroll-area-scrollbar",
+    "select-scroll-down-button",
+    "select-scroll-up-button",
+    "select-separator",
+    "select-value",
+    "sheet-overlay",
+    "sidebar",
+    "sidebar-container",
+    "sidebar-gap",
+    "sidebar-inner",
+    "sidebar-inset",
+    "slider",
+    "table-body",
+    "table-caption",
+    "table-footer",
+    "table-header",
+    "toast-viewport"
+  ],
+  "slots": {
+    "accordion": {
+      "disposition": "structural"
+    },
+    "accordion-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "accordion-item": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "accordion-trigger-icon": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "alert-action": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "alert-description": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "alert-dialog": {
+      "disposition": "structural"
+    },
+    "alert-dialog-action": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "alert-dialog-cancel": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "alert-dialog-footer": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "alert-dialog-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "alert-dialog-overlay": {
+      "disposition": "unresolved",
+      "note": "paints a backdrop; no central scrim policy yet"
+    },
+    "alert-dialog-portal": {
+      "disposition": "structural"
+    },
+    "alert-dialog-trigger": {
+      "disposition": "structural"
+    },
+    "aspect-ratio": {
+      "disposition": "structural"
+    },
+    "attachment-action": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "attachment-actions": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "attachment-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "attachment-group": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "attachment-trigger": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "avatar-group": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "breadcrumb": {
+      "disposition": "structural"
+    },
+    "breadcrumb-item": {
+      "disposition": "structural"
+    },
+    "breadcrumb-list": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "breadcrumb-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "bubble": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "bubble-group": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "bubble-reactions": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "card-action": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "card-content": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "card-footer": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "card-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "carousel": {
+      "disposition": "structural"
+    },
+    "carousel-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "carousel-item": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "carousel-next": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "carousel-previous": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "chart": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "checkbox-indicator": {
+      "disposition": "unresolved",
+      "note": "indicator with no central adapter yet"
+    },
+    "collapsible": {
+      "disposition": "structural"
+    },
+    "collapsible-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "collapsible-trigger": {
+      "disposition": "structural"
+    },
+    "combobox-chip-remove": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "combobox-chips": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "combobox-clear": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "combobox-collection": {
+      "disposition": "structural"
+    },
+    "combobox-empty": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "combobox-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "combobox-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "combobox-value": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "command-empty": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "command-input": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "command-input-wrapper": {
+      "disposition": "adapter",
+      "owner": "compat.css",
+      "rule": "command input height and radius"
+    },
+    "command-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "command-shortcut": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "context-menu": {
+      "disposition": "structural"
+    },
+    "context-menu-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "context-menu-portal": {
+      "disposition": "structural"
+    },
+    "context-menu-radio-group": {
+      "disposition": "structural"
+    },
+    "context-menu-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "context-menu-shortcut": {
+      "disposition": "unresolved",
+      "note": "shortcut text with no central mono adapter yet"
+    },
+    "context-menu-sub": {
+      "disposition": "structural"
+    },
+    "context-menu-trigger": {
+      "disposition": "structural"
+    },
+    "dialog": {
+      "disposition": "structural"
+    },
+    "dialog-close": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button",
+      "conditional": true,
+      "note": "only when composed with Button; the bare primitive is not covered"
+    },
+    "dialog-footer": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "dialog-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "dialog-overlay": {
+      "disposition": "unresolved",
+      "note": "paints a backdrop; no central scrim policy yet"
+    },
+    "dialog-portal": {
+      "disposition": "structural"
+    },
+    "dialog-trigger": {
+      "disposition": "structural"
+    },
+    "drawer": {
+      "disposition": "structural"
+    },
+    "drawer-close": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button",
+      "conditional": true,
+      "note": "only when composed with Button; the bare primitive is not covered"
+    },
+    "drawer-content": {
+      "disposition": "adapter",
+      "owner": "families.css",
+      "rule": "inner content of drawer-popup, which owns the surface"
+    },
+    "drawer-footer": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "drawer-header": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "drawer-overlay": {
+      "disposition": "unresolved",
+      "note": "paints a backdrop; no central scrim policy yet"
+    },
+    "drawer-portal": {
+      "disposition": "structural"
+    },
+    "drawer-swipe-handle": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "drawer-trigger": {
+      "disposition": "structural"
+    },
+    "drawer-viewport": {
+      "disposition": "structural"
+    },
+    "dropdown-menu": {
+      "disposition": "structural"
+    },
+    "dropdown-menu-checkbox-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "dropdown-menu-portal": {
+      "disposition": "structural"
+    },
+    "dropdown-menu-radio-group": {
+      "disposition": "structural"
+    },
+    "dropdown-menu-radio-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "dropdown-menu-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "dropdown-menu-shortcut": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "dropdown-menu-sub": {
+      "disposition": "structural"
+    },
+    "dropdown-menu-trigger": {
+      "disposition": "structural"
+    },
+    "empty-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "empty-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "field": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "field-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "field-error": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "field-group": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "field-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "field-separator-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "field-set": {
+      "disposition": "structural"
+    },
+    "hover-card": {
+      "disposition": "structural"
+    },
+    "hover-card-portal": {
+      "disposition": "structural"
+    },
+    "hover-card-trigger": {
+      "disposition": "structural"
+    },
+    "input-otp": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "input-otp-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "item-actions": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "item-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "item-footer": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "item-group": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "item-header": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "item-separator": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "kbd-group": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "marker": {
+      "disposition": "structural"
+    },
+    "menubar-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "menubar-menu": {
+      "disposition": "structural"
+    },
+    "menubar-portal": {
+      "disposition": "structural"
+    },
+    "menubar-radio-group": {
+      "disposition": "structural"
+    },
+    "menubar-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "menubar-shortcut": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "menubar-sub": {
+      "disposition": "structural"
+    },
+    "message": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-footer": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-group": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-header": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-scroller": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-scroller-button": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "message-scroller-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-scroller-item": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "message-scroller-viewport": {
+      "disposition": "structural"
+    },
+    "native-select-icon": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "native-select-optgroup": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "native-select-option": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "native-select-wrapper": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "navigation-menu": {
+      "disposition": "structural"
+    },
+    "navigation-menu-indicator": {
+      "disposition": "unresolved",
+      "note": "indicator with no central adapter yet"
+    },
+    "navigation-menu-item": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "navigation-menu-list": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "pagination": {
+      "disposition": "structural"
+    },
+    "pagination-content": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "pagination-item": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "popover": {
+      "disposition": "structural"
+    },
+    "popover-header": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "popover-trigger": {
+      "disposition": "structural"
+    },
+    "progress": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-actions": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-choice-description": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-choice-indicator-check": {
+      "disposition": "unresolved",
+      "note": "indicator with no central adapter yet"
+    },
+    "questionnaire-choice-input": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-choice-label": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-choice-shortcut": {
+      "disposition": "unresolved",
+      "note": "shortcut text with no central mono adapter yet"
+    },
+    "questionnaire-choices": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-error": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-input-wrapper": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-next": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "questionnaire-previous": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "questionnaire-progress": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "questionnaire-skip": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "questionnaire-submit": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "radio-group": {
+      "disposition": "structural"
+    },
+    "radio-group-indicator": {
+      "disposition": "unresolved",
+      "note": "indicator with no central adapter yet"
+    },
+    "resizable-handle": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "resizable-panel": {
+      "disposition": "structural"
+    },
+    "resizable-panel-group": {
+      "disposition": "structural"
+    },
+    "scroll-area": {
+      "disposition": "structural"
+    },
+    "scroll-area-scrollbar": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "scroll-area-viewport": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "containment block"
+    },
+    "select-item-indicator": {
+      "disposition": "adapter",
+      "owner": "system.css",
+      "rule": "indicator side block"
+    },
+    "select-scroll-down-button": {
+      "disposition": "unresolved",
+      "note": "Base UI scroll arrow, not a Button \u2014 no treatment yet"
+    },
+    "select-scroll-up-button": {
+      "disposition": "unresolved",
+      "note": "Base UI scroll arrow, not a Button \u2014 no treatment yet"
+    },
+    "select-separator": {
+      "disposition": "unresolved",
+      "note": "separator; no central divider policy yet"
+    },
+    "select-value": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "sheet": {
+      "disposition": "structural"
+    },
+    "sheet-close": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button",
+      "conditional": true,
+      "note": "only when composed with Button; the bare primitive is not covered"
+    },
+    "sheet-footer": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sheet-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sheet-overlay": {
+      "disposition": "unresolved",
+      "note": "paints a backdrop; no central scrim policy yet"
+    },
+    "sheet-portal": {
+      "disposition": "structural"
+    },
+    "sheet-trigger": {
+      "disposition": "structural"
+    },
+    "sidebar": {
+      "disposition": "unresolved",
+      "note": "some branches paint bg-sidebar; not governed centrally"
+    },
+    "sidebar-container": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "sidebar-content": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-footer": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-gap": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "sidebar-group": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-group-content": {
+      "disposition": "structural"
+    },
+    "sidebar-header": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-inner": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "sidebar-inset": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "sidebar-menu": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-menu-item": {
+      "disposition": "structural"
+    },
+    "sidebar-menu-sub": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "sidebar-menu-sub-item": {
+      "disposition": "structural"
+    },
+    "sidebar-trigger": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button"
+    },
+    "sidebar-wrapper": {
+      "disposition": "structural"
+    },
+    "slider": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "spinner": {
+      "disposition": "shape-exception"
+    },
+    "table": {
+      "disposition": "structural"
+    },
+    "table-body": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "table-caption": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "table-cell": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "table-footer": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "table-header": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "table-row": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "tabs": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "tabs-content": {
+      "disposition": "adapter",
+      "owner": "system.css"
+    },
+    "toast-action": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button",
+      "conditional": true,
+      "note": "only when composed with Button; the bare primitive is not covered"
+    },
+    "toast-close": {
+      "disposition": "alias",
+      "of": "inline-control",
+      "via": "Button",
+      "conditional": true,
+      "note": "only when composed with Button; the bare primitive is not covered"
+    },
+    "toast-portal": {
+      "disposition": "structural"
+    },
+    "toast-viewport": {
+      "disposition": "unresolved",
+      "note": "painted, no treatment yet \u2014 existing debt"
+    },
+    "tooltip": {
+      "disposition": "structural"
+    },
+    "tooltip-provider": {
+      "disposition": "structural"
+    },
+    "tooltip-trigger": {
+      "disposition": "structural"
+    }
+  }
+}

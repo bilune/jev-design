@@ -1,0 +1,2310 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN ENGINE — tokens, flags and per-component adjustments
+
+   Layer map:
+   - `families.css` owns what components SHARE (see that file).
+   - This file owns the token values, the structural flags, and the
+     adjustments that are genuinely specific to one component.
+   - `compat.css` owns the narrow overrides needed to defeat upstream
+     `!important` utilities.
+
+   Rules that govern components sit OUTSIDE `@layer` so they win against the
+   utilities the components ship with. Layout helpers sit INSIDE
+   `@layer components` so a one-off Tailwind utility can still adjust a case
+   without fighting the engine.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Scalars — the provider overwrites these on <html>. */
+  --ui-radius-control: 0.625rem;
+  --ui-radius-surface: 0.875rem;
+  --ui-border-width: 1px;
+  --ui-shadow-surface: 0 1px 2px 0 oklch(0 0 0 / 0.04);
+  --ui-shadow-overlay: 0 12px 32px -8px oklch(0 0 0 / 0.16);
+
+  --ui-space: 0.25rem;
+  --ui-gap-section: 1.5rem;
+  --ui-gap-stack: 1rem;
+  --ui-gap-inline: 0.5rem;
+  --ui-pad-surface: 1.5rem;
+  --ui-control-height: 2.25rem;
+  --ui-control-pad-x: 0.875rem;
+  --ui-gap-field: 0.5rem;
+
+  --ui-font-sans: ui-sans-serif, system-ui, sans-serif;
+  --ui-font-mono: ui-monospace, monospace;
+  /* ── The apparatus around a figure ───────────────────────────────────────
+     A headline number carries two pieces of furniture: something showing where
+     the value stands, and something showing which way it moved. Both were the
+     same in every style — a thin continuous bar and a filled chip — and both
+     turn out to be expressible over the components already there, with no
+     component knowing anything about it.
+
+     `segments` is the same progress bar behind a repeating mask. `rule` strips
+     the track and leaves the indicator as a line at the foot of the figure. */
+  --ui-segment-size: max(4px, calc(var(--ui-control-h) * 0.16));
+  --ui-segment-gap: max(2px, calc(var(--ui-segment-size) * 0.45));
+
+  /* Titles get their own face. It falls back to the body face, so a style that
+     does not care about display type simply never sets it. */
+  --ui-font-display: var(--ui-font-sans);
+  --ui-font-size-base: 0.875rem;
+  --ui-font-scale: 1;
+  --ui-tracking-title: -0.015em;
+  --ui-tracking-label: 0em;
+  --ui-weight-title: 600;
+  --ui-weight-label: 500;
+  --ui-weight-control: 500;
+
+  --ui-accent: oklch(0.55 0.21 265);
+  --ui-surface-tint: 0.35;
+  --ui-duration: 180ms;
+  --ui-easing: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Derived ------------------------------------------------------------- */
+  --ui-density-k: 1;
+  --ui-edge: var(--border);
+  --ui-border-color: var(--ui-edge);
+
+  --ui-gap-section-x: calc(var(--ui-gap-section) * var(--ui-density-k));
+  --ui-gap-stack-x: calc(var(--ui-gap-stack) * var(--ui-density-k));
+  --ui-gap-inline-x: calc(var(--ui-gap-inline) * var(--ui-density-k));
+  --ui-pad-surface-x: calc(var(--ui-pad-surface) * var(--ui-density-k));
+  --ui-control-height-x: calc(
+    var(--ui-control-height) * (0.85 + 0.15 * var(--ui-density-k))
+  );
+  --ui-control-pad-x-x: calc(var(--ui-control-pad-x) * var(--ui-density-k));
+  --ui-gap-field-x: calc(var(--ui-gap-field) * var(--ui-density-k));
+  /* The corner of a mark: a legend swatch, a tooltip key. It is a fraction of
+     the control radius rather than the radius itself, because a 10px corner on
+     an 8px square is a circle, and these are squares on purpose. Zero stays
+     zero, so a square style squares them too. */
+  --ui-radius-mark: min(calc(var(--ui-radius-control) * 0.35), 4px);
+  --ui-gap-tight-x: calc(var(--ui-gap-inline-x) * 0.5);
+  --ui-gap-hairline-x: calc(var(--ui-gap-stack-x) * 0.25);
+
+  --ui-text-sm: calc(var(--ui-font-size-base) * var(--ui-font-scale));
+  --ui-text-xs: calc(var(--ui-text-sm) * 0.855);
+  --ui-text-md: calc(var(--ui-text-sm) * 1.14);
+  --ui-text-lg: calc(var(--ui-text-sm) * 1.43);
+  --ui-text-xl: calc(var(--ui-text-sm) * 1.85);
+  --ui-text-display: calc(var(--ui-text-sm) * 2.6);
+
+  /* Aliases the families consume. `--ui-radius-child` is deliberately NOT
+     declared here: each container publishes it, where its own padding and
+     border actually exist. Declaring it at :root would resolve it against a
+     padding of zero and silently disable every nested radius. */
+  /* Tier factors, mirrored from src/design/scale.ts for the first paint. */
+  --ui-scale-compact: 0.86;
+  --ui-scale-base: 1;
+  --ui-scale-roomy: 1.14;
+
+  --ui-control-h: calc(var(--ui-control-height-x) * var(--ui-scale-base));
+  --ui-control-px: var(--ui-control-pad-x-x);
+  --ui-nest-pad: 0px;
+  --ui-nest-border: 0px;
+
+  /* What the variants switch, so no component list is ever written twice. */
+  --ui-border-visible: var(--ui-border-color);
+  --ui-surface-bg: var(--card);
+
+  /* Structure — rewritten by the data-attributes below. */
+  --ui-icon-order: 0;
+  --ui-actions-justify: flex-end;
+  --ui-actions-grow: 0;
+  --ui-indicator-order: -1;
+  --ui-indicator-inset-start: auto;
+  --ui-indicator-inset-end: calc(var(--ui-space) * 2);
+  --ui-indicator-pad-start: var(--ui-control-pad-x-x);
+  --ui-indicator-pad-end: calc(var(--ui-control-pad-x-x) + 1.25rem);
+  --ui-label-case: none;
+  /* Figures were hard-coded tabular, which is a modernist decision the engine
+     had no way to revisit. A control room wants columns that align; a printed
+     book wants old-style figures that dip below the line like lowercase. */
+  --ui-figures: tabular-nums lining-nums;
+  --ui-label-caps: normal;
+  --ui-label-tracking: var(--ui-tracking-label);
+  --ui-title-align: start;
+  --ui-label-col: 11rem;
+}
+
+/* ── Density ────────────────────────────────────────────────────────────── */
+[data-ui-density="compact"] { --ui-density-k: 0.75; }
+[data-ui-density="cozy"] { --ui-density-k: 1; }
+[data-ui-density="comfortable"] { --ui-density-k: 1.3; }
+
+/* ── Icon side ──────────────────────────────────────────────────────────── */
+[data-ui-icon-side="leading"] { --ui-icon-order: 0; }
+[data-ui-icon-side="trailing"] { --ui-icon-order: 1; }
+
+/* ── Action alignment ───────────────────────────────────────────────────── */
+[data-ui-actions-align="start"] { --ui-actions-justify: flex-start; }
+[data-ui-actions-align="end"] { --ui-actions-justify: flex-end; }
+[data-ui-actions-align="between"] { --ui-actions-justify: space-between; }
+/* `justify-content: stretch` behaves like `start` in flexbox — distribution
+   comes from the members growing, so that is what the flag switches. */
+[data-ui-actions-align="stretch"] {
+  --ui-actions-justify: flex-start;
+  --ui-actions-grow: 1;
+}
+
+/* ── Indicator side in menus ────────────────────────────────────────────────
+   The indicator is absolutely positioned upstream, so `order` cannot move it.
+   The flag switches the logical inset AND the padding the option reserves for
+   it; otherwise the check would sit on top of the label. */
+[data-ui-indicator-side="start"] {
+  --ui-indicator-order: -1;
+  --ui-indicator-inset-start: calc(var(--ui-space) * 2);
+  --ui-indicator-inset-end: auto;
+  --ui-indicator-pad-start: calc(var(--ui-control-pad-x-x) + 1.25rem);
+  --ui-indicator-pad-end: var(--ui-control-pad-x-x);
+}
+[data-ui-indicator-side="end"] {
+  --ui-indicator-order: 99;
+  --ui-indicator-inset-start: auto;
+  --ui-indicator-inset-end: calc(var(--ui-space) * 2);
+  --ui-indicator-pad-start: var(--ui-control-pad-x-x);
+  --ui-indicator-pad-end: calc(var(--ui-control-pad-x-x) + 1.25rem);
+}
+
+/* ── Label casing ───────────────────────────────────────────────────────── */
+[data-ui-figures="lining"] { --ui-figures: proportional-nums lining-nums; }
+[data-ui-figures="oldstyle"] { --ui-figures: proportional-nums oldstyle-nums; }
+
+/* Small capitals are a third setting of a label, not a third case: the letters
+   stay lowercase and the font draws them as capitals at x-height. Fonts without
+   the feature get a synthesised version, which is worse and still legible. */
+[data-ui-label-case="smallCaps"] {
+  --ui-label-case: lowercase;
+  --ui-label-caps: small-caps;
+}
+
+[data-ui-label-case="upper"] {
+  --ui-label-case: uppercase;
+  --ui-label-tracking: max(var(--ui-tracking-label), 0.08em);
+}
+
+/* ── Title alignment ────────────────────────────────────────────────────── */
+[data-ui-title-align="center"] { --ui-title-align: center; }
+
+/* ── Surfaces: one value, not a list of components ──────────────────────────
+   `surfaceTint` mixes a trace of the accent into `--ui-surface-bg`, which the
+   surface family consumes. Floating layers keep the popover background, so the
+   tint reaches surfaces resting on the page, not every painted box. */
+[data-ui-surface="raised"] {
+  --ui-surface-bg: color-mix(
+    in oklch,
+    var(--card),
+    var(--ui-accent) calc(var(--ui-surface-tint) * 4%)
+  );
+}
+[data-ui-surface="flat"] {
+  --ui-surface-bg: color-mix(
+    in oklch,
+    var(--background),
+    var(--ui-accent) calc(var(--ui-surface-tint) * 3%)
+  );
+}
+[data-ui-surface="outline"] { --ui-surface-bg: transparent; }
+
+/* ── Borders: one value, not a list of components ───────────────────────── */
+[data-ui-borders="full"] { --ui-border-visible: var(--ui-border-color); }
+[data-ui-borders="quiet"] {
+  --ui-border-visible: color-mix(
+    in oklch,
+    var(--ui-border-color),
+    transparent 45%
+  );
+}
+[data-ui-borders="none"] { --ui-border-visible: transparent; }
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+/* `motion` is about TRANSITIONS, and only about transitions.
+ *
+ * It also killed `animation-duration`, which meant a style answering "state
+ * changes are instant" silently cancelled a blinking alarm lamp it had asked
+ * for in a different question. A terminal whose updates are instant and whose
+ * warning light blinks is a coherent thing to ask for, and the engine was
+ * discarding one correct answer to satisfy a meaning the other never had.
+ *
+ * A style that wants nothing at all to move says so with both answers: an
+ * instant speed and an ambient of `none`. That is expressible, and it is now
+ * the only thing that means it. */
+[data-ui-motion="off"] *,
+[data-ui-motion="off"] *::before,
+[data-ui-motion="off"] *::after {
+  transition-duration: 0ms !important;
+}
+
+/* ═══ BASE ══════════════════════════════════════════════════════════════ */
+
+html {
+  font-family: var(--ui-font-sans);
+  font-size: 16px;
+}
+body {
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-text-sm);
+}
+[data-slot="kbd"],
+[data-slot="command-shortcut"],
+[data-slot="dropdown-menu-shortcut"],
+[data-slot="menubar-shortcut"],
+[data-slot="input-otp-slot"] {
+  font-family: var(--ui-font-mono);
+}
+
+/* No icon is ever squashed or stretched while competing for space. */
+[data-slot] svg {
+  flex-shrink: 0;
+}
+
+/* ── Icon weight ─────────────────────────────────────────────────────────────
+   The icons were the last thing every style left alone. A brutalist page with
+   3px rules kept drawing its icons at the same hairline as a minimal one, and
+   the result reads as two different hands on one page.
+
+   Stroke weight is DERIVED from the system's line weight rather than asked
+   for: a style that thickens its rules and not its icons is not a style, it is
+   a mismatch. The clamp keeps a hairline style from producing invisible icons
+   and a heavy one from producing blobs, because the icon grid is 24 units wide
+   and does not scale with the border. */
+:root {
+  --ui-icon-stroke: clamp(1.4px, calc(var(--ui-border-width) * 0.7 + 1.1px), 3px);
+}
+
+/* Only the stroke family takes this. Phosphor draws its own weights and the
+   pixel set is filled squares; forcing a stroke width on either would erase
+   what makes them a different family. */
+[data-ui-icon-family="stroke"] [data-slot] svg,
+[data-ui-icon-family="stroke"] svg.lucide {
+  stroke-width: var(--ui-icon-stroke);
+}
+
+/* Interactive components share one timing, so `duration` and `easing` are
+   real levers rather than decorative tokens. */
+[data-slot="button"],
+.group\/button,
+.group\/menu-button,
+[data-slot="toggle"],
+[data-slot="tabs-trigger"],
+[data-slot="toggle-group-item"],
+[data-slot="checkbox"],
+[data-slot="switch"],
+[data-slot="switch-thumb"],
+[data-slot="select-trigger"],
+[data-slot="combobox-trigger"],
+[data-slot="sidebar-menu-button"],
+[data-slot="dropdown-menu-item"],
+[data-slot="context-menu-item"],
+[data-slot="menubar-item"],
+[data-slot="command-item"],
+[data-slot="table-row"],
+[data-slot="accordion-trigger"] {
+  transition-duration: var(--ui-duration);
+  transition-timing-function: var(--ui-easing);
+}
+
+/* Covered elements do not transition layout dimensions or radii; they may
+   transition the colours, effects and movement listed below.
+
+   This is a policy, not preservation of every upstream animation: it also ends
+   the sidebar's width transition and the drawer's height transition. The reason
+   is that a preset change would otherwise interpolate geometry, leaving a
+   half-finished radius the design never asked for — and an audit measuring a
+   frame the user was never meant to keep. Components outside the engine (an
+   unslotted popup, for instance) are not covered by this. */
+[data-slot],
+.group\/button,
+.group\/badge,
+.group\/toggle,
+.group\/input-group {
+  transition-property: color, background-color, border-color, outline-color,
+    box-shadow, opacity, transform, translate, scale, rotate, filter,
+    backdrop-filter;
+}
+
+/* ═══ CONTAINMENT ══════════════════════════════════════════════════════════
+   What happens when the content does not fit.
+
+   The engine scales type and space from the tokens, but a token has no idea
+   how much room the box it lands in actually has. Pushed far enough — large
+   text, generous density — a padding that is comfortable on a wide surface
+   eats a narrow one, a metric splits across two lines, and a row of tabs runs
+   past its container.
+
+   So every scaled value that can outgrow its box carries a CEILING RELATIVE TO
+   THAT BOX, expressed in container units. The token stays the intent; the
+   ceiling keeps it honest at the extremes. This is what makes the presets safe
+   to push around from the panel.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Surfaces measure themselves so their own padding can be capped, and their
+   content areas measure themselves too: a child sizing against the surface
+   would be reading a width that includes the padding keeping it away from the
+   edge. */
+[data-slot="card-content"],
+[data-slot="card-header"],
+[data-slot="card"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-slot="popover-content"],
+[data-slot="table-container"],
+.ui-surface {
+  container-type: inline-size;
+}
+
+/* ═══ SURFACES: internal rhythm ════════════════════════════════════════════ */
+
+/* The card already exposes its own spacing variable. Redefining it beats
+   overwriting each padding, which would break rules like `has-footer:pb-0`. */
+[data-slot="card"] {
+  /* Never more than a tenth of the surface per side: on a 250px card the
+     comfortable 42px would leave a third of the width to padding alone. */
+  --card-spacing: min(var(--ui-pad-surface-x), 10cqi);
+  gap: min(var(--ui-gap-stack-x), 8cqi);
+}
+[data-slot="card-header"] {
+  gap: calc(min(var(--ui-gap-stack-x), 8cqi) * 0.35);
+  text-align: var(--ui-title-align);
+  border-top-left-radius: var(--ui-radius-surface);
+  border-top-right-radius: var(--ui-radius-surface);
+}
+[data-slot="card-footer"] {
+  gap: var(--ui-gap-inline-x);
+  border-bottom-left-radius: var(--ui-radius-surface);
+  border-bottom-right-radius: var(--ui-radius-surface);
+  border-top-width: var(--ui-border-width);
+  border-top-color: var(--ui-border-color);
+  padding-block: calc(var(--ui-pad-surface-x) * 0.7);
+}
+/* When the heading has no room for its text and its action side by side, the
+   action takes its own row instead of squeezing the text into nothing. The
+   threshold is in `em`, so it scales with the type: what matters is not how
+   many pixels there are, but how many characters fit in them. */
+@container (max-width: 19em) {
+  [data-slot="card-header"]:has([data-slot="card-action"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  [data-slot="card-header"] > [data-slot="card-action"] {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+}
+
+/* Only a footer that carries actions follows the action alignment; an
+   informational footer always reads from the start. */
+/* `:has()` needs the survivor too: a footer whose only action is a Button
+   rendered through a Dialog trigger holds an element whose slot says
+   `dialog-trigger`, and the footer would stop aligning its actions. */
+[data-slot="card-footer"]:has(> :is([data-slot="button"], .group\/button)),
+[data-slot="card-footer"]:has(> [data-slot="button-group"]) {
+  justify-content: var(--ui-actions-justify);
+}
+[data-slot="card"] > img:first-child {
+  border-top-left-radius: var(--ui-radius-surface);
+  border-top-right-radius: var(--ui-radius-surface);
+}
+[data-slot="card"] > img:last-child {
+  border-bottom-left-radius: var(--ui-radius-surface);
+  border-bottom-right-radius: var(--ui-radius-surface);
+}
+
+/* Dialogs and panels: the container sets the padding and the footer bleeds to
+   the edge with the same value, so top and bottom measure the same. */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  gap: min(var(--ui-gap-stack-x), 6cqi);
+  padding: min(var(--ui-pad-surface-x), 8cqi);
+}
+[data-slot="dialog-header"],
+[data-slot="alert-dialog-header"] {
+  padding: 0;
+  gap: calc(var(--ui-gap-stack-x) * 0.35);
+  text-align: var(--ui-title-align);
+}
+[data-slot="dialog-footer"],
+[data-slot="alert-dialog-footer"] {
+  --ui-pad-dialog: min(var(--ui-pad-surface-x), 8cqi);
+  margin: 0 calc(var(--ui-pad-dialog) * -1) calc(var(--ui-pad-dialog) * -1);
+  padding: calc(var(--ui-pad-dialog) * 0.7) var(--ui-pad-dialog);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: var(--ui-actions-justify);
+  gap: var(--ui-gap-inline-x);
+  border-top-width: var(--ui-border-width);
+  border-top-color: var(--ui-border-color);
+  border-bottom-left-radius: var(--ui-radius-surface);
+  border-bottom-right-radius: var(--ui-radius-surface);
+}
+
+/* The side panel carries no padding of its own: its header, body and footer
+   set it, all from the same token. */
+[data-slot="sheet-content"] {
+  gap: var(--ui-gap-stack-x);
+}
+[data-slot="sheet-header"] {
+  padding: min(var(--ui-pad-surface-x), 8cqi);
+  padding-bottom: 0;
+  gap: calc(var(--ui-gap-stack-x) * 0.35);
+  text-align: var(--ui-title-align);
+}
+[data-slot="sheet-footer"] {
+  padding: calc(min(var(--ui-pad-surface-x), 8cqi) * 0.7) min(var(--ui-pad-surface-x), 8cqi);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: var(--ui-actions-justify);
+  gap: var(--ui-gap-inline-x);
+  border-top-width: var(--ui-border-width);
+  border-top-color: var(--ui-border-color);
+}
+
+[data-slot="popover-content"],
+[data-slot="hover-card-content"],
+[data-slot="tooltip-content"] {
+  padding: calc(var(--ui-pad-surface-x) * 0.6);
+}
+
+/* Action members grow only when the alignment asks them to. */
+[data-slot="dialog-footer"] > [data-slot],
+[data-slot="alert-dialog-footer"] > [data-slot],
+[data-slot="sheet-footer"] > [data-slot],
+.ui-actions > [data-slot] {
+  flex-grow: var(--ui-actions-grow);
+}
+
+/* ═══ ELEVATION OWNERSHIP ══════════════════════════════════════════════════
+   One box owns the outer surface. Content embedded in it consumes that
+   spacing and shape instead of stacking a second frame on top.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.ui-surface > [data-slot="table-container"],
+[data-slot="card-content"] > [data-slot="table-container"],
+[data-slot="card-content"] > [data-slot="empty"],
+[data-slot="card"] > [data-slot="empty"],
+[data-slot="card-content"] > [data-slot="calendar"],
+[data-slot="popover-content"] > [data-slot="calendar"],
+[data-slot="card-content"] [data-slot="item-group"] > [data-slot="item"],
+[data-slot="card-content"] > [data-slot="item"] {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+[data-slot="card-content"] > [data-slot="calendar"] {
+  padding: 0;
+}
+[data-slot="card-content"] [data-slot="item-group"] > [data-slot="item"],
+[data-slot="card-content"] > [data-slot="item"] {
+  padding-inline: 0;
+}
+
+/* ═══ PER-COMPONENT ADJUSTMENTS ════════════════════════════════════════════
+   Only what is genuinely specific to one component lives below. Anything
+   shared belongs in a family.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Title roles ────────────────────────────────────────────────────────────
+   Central control must not flatten hierarchy. A title stays inside the title
+   contract (weight, tracking, line-height all follow the tokens) and only its
+   step on the type scale changes. */
+
+/* A figure read at a glance is never broken across lines — "$1,66 M" split in
+   two stops being a number. If it does not fit, it shrinks: the ceiling is a
+   share of the surface it sits on, so it holds at any type scale. */
+[data-ui-title-role="metric"],
+[data-ui-title-role="display"] {
+  font-variant-numeric: var(--ui-figures);
+  white-space: nowrap;
+  min-width: 0;
+}
+[data-ui-title-role="metric"] {
+  --ui-title-size: min(var(--ui-text-xl), 22cqi);
+}
+[data-ui-title-role="display"] {
+  --ui-title-size: min(var(--ui-text-display), 30cqi);
+}
+[data-ui-title-role="compact"] {
+  --ui-title-size: var(--ui-text-sm);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+[data-slot="badge"],
+.group\/badge {
+  font-size: var(--ui-text-xs);
+  font-weight: var(--ui-weight-label);
+  letter-spacing: var(--ui-label-tracking);
+  text-transform: var(--ui-label-case);
+  font-variant-caps: var(--ui-label-caps);
+  padding-inline: calc(var(--ui-control-pad-x-x) * 0.55);
+  gap: calc(var(--ui-gap-inline-x) * 0.5);
+}
+
+/* ── Fields: label above or beside, decided centrally ───────────────────── */
+
+[data-slot="field-group"] {
+  gap: calc(var(--ui-gap-stack-x) * 1.1);
+}
+[data-slot="field"][data-orientation="vertical"] {
+  gap: var(--ui-gap-field-x);
+}
+[data-ui-label-placement="start"] [data-slot="field"][data-orientation="vertical"] {
+  display: grid;
+  grid-template-columns: var(--ui-label-col) minmax(0, 1fr);
+  align-items: center;
+  column-gap: calc(var(--ui-gap-inline-x) * 2);
+  row-gap: calc(var(--ui-gap-field-x) * 0.5);
+}
+[data-ui-label-placement="start"]
+  [data-slot="field"][data-orientation="vertical"]
+  > [data-slot="field-description"],
+[data-ui-label-placement="start"]
+  [data-slot="field"][data-orientation="vertical"]
+  > [data-slot="field-error"] {
+  grid-column: 2;
+}
+
+/* ── Menus: indicator placement ─────────────────────────────────────────── */
+
+/* Indicator and padding move together. Switching one without the other is what
+   made the check sit on top of the label: the option reserved room on the new
+   side while the indicator stayed on the old one. Every menu that has an
+   indicator now exposes it, so the pair is always in agreement. */
+[data-slot="dropdown-menu-checkbox-item-indicator"],
+[data-slot="dropdown-menu-radio-item-indicator"],
+[data-slot="context-menu-item-indicator"],
+[data-slot="menubar-item-indicator"],
+[data-slot="select-item-indicator"],
+[data-slot="combobox-item-indicator"] {
+  order: var(--ui-indicator-order);
+  inset-inline-start: var(--ui-indicator-inset-start);
+  inset-inline-end: var(--ui-indicator-inset-end);
+}
+[data-slot="dropdown-menu-checkbox-item"],
+[data-slot="dropdown-menu-radio-item"],
+[data-slot="context-menu-checkbox-item"],
+[data-slot="context-menu-radio-item"],
+[data-slot="menubar-checkbox-item"],
+[data-slot="menubar-radio-item"],
+[data-slot="select-item"],
+[data-slot="combobox-item"] {
+  padding-inline-start: var(--ui-indicator-pad-start);
+  padding-inline-end: var(--ui-indicator-pad-end);
+}
+[data-slot="menubar-checkbox-item"],
+[data-slot="menubar-radio-item"],
+[data-slot="context-menu-checkbox-item"],
+[data-slot="context-menu-radio-item"] {
+  position: relative;
+}
+
+/* ── Items and lists ────────────────────────────────────────────────────── */
+
+[data-slot="item"] {
+  gap: var(--ui-gap-inline-x);
+  padding: calc(var(--ui-pad-surface-x) * 0.55);
+}
+[data-slot="item-actions"] {
+  justify-content: var(--ui-actions-justify);
+  gap: calc(var(--ui-gap-inline-x) * 0.75);
+}
+[data-slot="item-group"] {
+  gap: 0;
+}
+[data-slot="item-separator"] {
+  margin-block: 0;
+}
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+
+[data-slot="table-container"] {
+  overflow-x: auto;
+}
+[data-slot="table-cell"],
+[data-slot="table-head"] {
+  padding-inline: calc(var(--ui-pad-surface-x) * 0.6);
+  padding-block: calc(var(--ui-pad-surface-x) * 0.38);
+}
+[data-slot="table-cell"] {
+  font-size: var(--ui-text-sm);
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+
+[data-slot="tabs"],
+[data-slot="tabs-content"] {
+  min-width: 0;
+}
+[data-slot="tabs"] {
+  gap: var(--ui-gap-stack-x);
+}
+[data-slot="tabs-list"] {
+  gap: calc(var(--ui-gap-inline-x) * 0.5);
+}
+[data-slot="tabs-trigger"] {
+  padding-inline: var(--ui-control-pad-x-x);
+  font-weight: var(--ui-weight-control);
+  text-transform: var(--ui-label-case);
+  font-variant-caps: var(--ui-label-caps);
+  letter-spacing: var(--ui-label-tracking);
+  gap: calc(var(--ui-gap-inline-x) * 0.6);
+}
+[data-slot="toggle-group-item"] {
+  padding-inline: calc(var(--ui-control-pad-x-x) * 0.7);
+  font-size: var(--ui-text-sm);
+  font-weight: var(--ui-weight-control);
+}
+
+/* ── Navigation shell ───────────────────────────────────────────────────────
+   Which side the navigation sits on is resolved by the sidebar component
+   itself (it receives the flag as a prop), so the space it reserves lands on
+   the correct side. Here we only define the frame. */
+
+.ui-shell {
+  display: flex;
+  min-height: 100dvh;
+  width: 100%;
+  flex-direction: row;
+}
+
+[data-slot="sidebar-menu"] {
+  gap: calc(var(--ui-gap-inline-x) * 0.4);
+}
+:is([data-slot="sidebar-menu-button"], .group\/menu-button) {
+  height: calc(var(--ui-control-height-x) * 0.95);
+  font-weight: var(--ui-weight-control);
+  justify-content: flex-start;
+}
+[data-ui-icon-side="trailing"] :is([data-slot="sidebar-menu-button"], .group\/menu-button) > span {
+  margin-inline-end: auto;
+}
+/* The menu counter steps aside so it never sits under the icon once the icon
+   moves to the trailing edge. */
+[data-ui-icon-side="trailing"] [data-slot="sidebar-menu-badge"] {
+  right: calc(1rem + var(--ui-gap-inline-x) + var(--ui-space) * 2);
+}
+[data-slot="sidebar-group"] {
+  gap: calc(var(--ui-gap-inline-x) * 0.5);
+  padding: calc(var(--ui-pad-surface-x) * 0.4);
+}
+[data-slot="sidebar-header"],
+[data-slot="sidebar-footer"] {
+  padding: calc(var(--ui-pad-surface-x) * 0.4);
+  gap: calc(var(--ui-gap-stack-x) * 0.5);
+}
+[data-slot="sidebar-content"] {
+  gap: calc(var(--ui-gap-stack-x) * 0.5);
+}
+[data-slot="sidebar-menu-sub"] {
+  gap: calc(var(--ui-gap-inline-x) * 0.3);
+}
+
+/* ── Menus and command palette ──────────────────────────────────────────── */
+
+/* The popup is sized by its content, not the other way round. */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="context-menu-content"],
+[data-slot="context-menu-sub-content"],
+[data-slot="menubar-content"],
+[data-slot="menubar-sub-content"] {
+  min-width: max-content;
+}
+/* ── Accordion, alerts, empty states ────────────────────────────────────── */
+
+[data-slot="accordion-trigger"] {
+  font-weight: var(--ui-weight-label);
+  font-size: var(--ui-text-sm);
+  padding-block: calc(var(--ui-pad-surface-x) * 0.4);
+}
+[data-slot="alert"] {
+  padding: calc(var(--ui-pad-surface-x) * 0.7);
+  gap: calc(var(--ui-gap-inline-x) * 0.4) var(--ui-gap-inline-x);
+}
+/* When the alert carries an action it gets its own column instead of floating
+   on top of the text. */
+[data-slot="alert"]:has([data-slot="alert-action"]) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+}
+[data-slot="alert"] > svg {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: start;
+  margin-top: 0.15em;
+}
+[data-slot="alert"]:has([data-slot="alert-action"]):not(:has(> svg)) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+[data-slot="alert"]:has(> svg) > [data-slot="alert-description"] {
+  grid-column: 2;
+}
+[data-slot="alert-action"] {
+  position: static;
+  grid-column: -2;
+  grid-row: 1 / -1;
+  align-self: center;
+  margin-inline-start: var(--ui-gap-inline-x);
+}
+[data-slot="empty"] {
+  padding: calc(var(--ui-pad-surface-x) * 1.6);
+  gap: var(--ui-gap-stack-x);
+}
+[data-slot="empty-header"] {
+  gap: calc(var(--ui-gap-stack-x) * 0.4);
+}
+
+/* ── Calendar ───────────────────────────────────────────────────────────────
+   The calendar exposes its own internal variables. Adapting those centrally
+   is far smaller than enumerating every day-cell selector.
+
+   Its grid has a natural width: the cells do not stretch. On a surface wider
+   than that width it would sit against the leading edge with the leftover space
+   piled on the other side, which reads as misalignment rather than as intent.
+   Content that cannot fill its box is centred in it. */
+[data-slot="calendar"] {
+  --cell-radius: var(--ui-radius-control);
+  --cell-size: clamp(1.5rem, calc(var(--ui-control-height-x) * 0.95), 3rem);
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+/* Seven columns always fit the surface. Sizing each cell from a token means a
+   generous control height silently cuts Monday and Sunday off the month, and
+   the month with a day missing still looks tidy — the worst kind of wrong.
+   Letting the grid divide the width it actually has cannot fail that way.
+
+   DIVIDED BY FLEX, NOT BY THE TABLE.
+   ---------------------------------------------------------------------------
+   This was written as `table-layout: fixed` on the table and `width: auto` on
+   the cells, which is how you divide a table. The markup is a `<table>` and the
+   layout is not one: react-day-picker gives every row `display: flex`, so the
+   fixed layout did nothing and the `width: auto` cancelled the `w-full` the day
+   cell was relying on to fill its slot. The weekday headers were untouched
+   because they carry `flex-1`, and growth does not depend on width — so the
+   header row spread across the full width while the days bunched up at 32px
+   each, seven of them in a 357px row, and the month drifted off its own
+   heading. A rule written for the layout the markup implies rather than the one
+   it has. */
+/* `table-layout: fixed` earns its place even though no table layout runs: it is
+   what makes the table honour `width: 100%` against its container instead of
+   shrinking to its contents. Removing it collapsed the whole month to the width
+   of seven 32px cells. */
+[data-slot="calendar"] table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+}
+[data-slot="calendar"] :is(td, th) {
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+}
+[data-slot="calendar"] [class*="rdp-month"],
+[data-slot="calendar"] [class*="rdp-months"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* The day button fills its cell.
+   ---------------------------------------------------------------------------
+   Its own classes ask for that — `w-full` is in the list — but `size-auto` sets
+   the same property and lands after it, so the button falls back to its content
+   width and the cell's own background paints around it. That was invisible for
+   as long as the cells were the size of one button: both were `--cell-size` and
+   the mismatch had nowhere to show. Once the columns divide the surface, the
+   cell is wider than its button and the selected day grows a grey rectangle
+   hanging off its side. */
+[data-slot="calendar"] tbody td > button {
+  width: 100%;
+  height: 100%;
+  /* `min-w-(--cell-size)` is a floor derived from the control height, and a
+     control height knows nothing about how much width seven columns have to
+     share. At a generous density it made the button 58px inside a 45px column
+     and the days began to overlap — the same failure the note above describes,
+     one level down. The column is the authority on width now. */
+  min-width: 0;
+}
+
+/* ── Content stays inside its surface ───────────────────────────────────────
+   A section of a surface never paints over the next one. Without this, content
+   taller than its box spills over the footer below it — and the taller the type
+   and the looser the density, the sooner that happens.
+
+   A scroller placed in a surface keeps its own scrolling: clipping at the root
+   is what makes the inner viewport do its job instead of letting the content
+   through. */
+
+[data-slot="card-content"],
+[data-slot="card-header"] {
+  min-height: 0;
+}
+[data-slot="card-content"]:has(~ [data-slot="card-footer"]) {
+  overflow: clip;
+}
+[data-slot="scroll-area"] {
+  overflow: hidden;
+  min-height: 0;
+}
+/* The viewport is sized as a percentage of its root. If the root only has a
+   ceiling and no height, that percentage resolves against nothing and the
+   content grows straight through it — which is how a list ends up painted over
+   the footer below. Inheriting the ceiling is what makes the scroller scroll. */
+[data-slot="scroll-area-viewport"] {
+  max-height: inherit;
+  overscroll-behavior: contain;
+}
+
+/* ── Focus: one ring for the whole engine ───────────────────────────────── */
+
+*:focus-visible {
+  outline: none;
+}
+[data-slot]:focus-visible {
+  box-shadow: 0 0 0 calc(var(--ui-border-width) + 1px) var(--ring);
+}
+
+/* ── Scrollbar, consistent with everything else ─────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--ui-border-color), transparent 20%)
+    transparent;
+}
+
+/* ═══ LAYOUT HELPERS ═══════════════════════════════════════════════════════
+   The page rhythm also comes from the tokens.
+
+   These sit in `@layer components` on purpose: a one-off Tailwind utility
+   (`gap-0`, `flex-row`) can adjust a single case without fighting the engine.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .ui-page {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-section-x);
+    padding: var(--ui-gap-section-x);
+    /* Room for the floating trigger, so the last row of a page is never
+       parked underneath it. The pagination row was the case that found this. */
+    padding-bottom: calc(var(--ui-gap-section-x) * 2 + var(--ui-fab-h));
+  }
+  /* And for the section bar underneath it, on the widths that have one. */
+  @media (max-width: 47.99rem) {
+    .ui-page {
+      padding-bottom: calc(
+        var(--ui-gap-section-x) * 2 + var(--ui-fab-h) + var(--ui-tabbar-h) +
+          env(safe-area-inset-bottom)
+      );
+    }
+  }
+  .ui-section {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-stack-x);
+  }
+  .ui-stack {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-stack-x);
+  }
+  .ui-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-gap-inline-x);
+  }
+  .ui-grid {
+    display: grid;
+    gap: var(--ui-gap-section-x);
+  }
+  .ui-actions {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    justify-content: var(--ui-actions-justify);
+    gap: var(--ui-gap-inline-x);
+  }
+
+  /* A row of controls. Beyond the family contract, the row itself imposes the
+     height — the safety net for a component not yet enrolled anywhere.
+     A child that legitimately measures differently carries `data-ui-free`. */
+  .ui-toolbar,
+  .ui-controls {
+    display: flex;
+    align-items: stretch;
+    gap: var(--ui-gap-inline-x);
+    min-height: var(--ui-control-height-x);
+  }
+  .ui-toolbar > [data-slot]:not([data-ui-free]),
+  .ui-controls > [data-slot]:not([data-ui-free]) {
+    height: var(--ui-control-height-x);
+    align-self: stretch;
+  }
+
+  /* A row that scrolls sideways instead of wrapping. A control group that
+     wraps grows a second line, and the family contract measures the group by
+     one height; scrolling keeps that true on a narrow viewport. The scrollbar
+     is hidden because the row is a set of controls, not a document. */
+  .ui-scroll-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .ui-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Short row: icon plus text, label plus value, chips. */
+  .ui-row-tight {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-gap-tight-x);
+  }
+  /* Two bound lines: title plus subtitle, value plus unit. */
+  .ui-stack-tight {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-hairline-x);
+    line-height: 1.35;
+  }
+  /* One field: label, control, help text. */
+  .ui-stack-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-field-x);
+  }
+
+  /* Secondary data: always monospaced, small and quiet, and it does not
+     inherit the uppercase treatment of labels. */
+  .ui-meta {
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-xs);
+    color: var(--muted-foreground);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .ui-mono {
+    font-family: var(--ui-font-mono);
+  }
+
+  /* Data cell: a label above its value, on a surface. */
+  .ui-datum {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ui-gap-hairline-x);
+    padding: calc(var(--ui-pad-surface-x) * 0.5);
+    border-radius: var(--ui-radius-surface);
+    border: var(--ui-border-width) solid var(--ui-border-visible);
+    background-color: var(--ui-surface-bg);
+  }
+
+  /* Status dot: round in every preset. */
+  .ui-dot {
+    display: inline-block;
+    width: 0.375rem;
+    height: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+  }
+
+  /* Product identity in the sidebar. */
+  .ui-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-gap-inline-x);
+  }
+  .ui-brand-mark {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--ui-control-height-x);
+    height: var(--ui-control-height-x);
+    border-radius: var(--ui-radius-control);
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Timeline: the dot, the thread and the spacing all come from tokens. */
+  .ui-timeline {
+    display: flex;
+    flex-direction: column;
+  }
+  .ui-timeline-item {
+    position: relative;
+    display: flex;
+    gap: var(--ui-gap-inline-x);
+    padding-bottom: var(--ui-gap-stack-x);
+  }
+  .ui-timeline-item:last-child {
+    padding-bottom: 0;
+  }
+  .ui-timeline-mark {
+    position: relative;
+    display: flex;
+    width: 0.75rem;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+  .ui-timeline-dot {
+    position: relative;
+    z-index: 1;
+    margin-top: 0.3em;
+    width: 0.625rem;
+    height: 0.625rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: var(--ui-border-width) solid var(--background);
+    background-color: var(--ui-border-color);
+    box-shadow: 0 0 0 var(--ui-border-width) var(--ui-border-color);
+  }
+  .ui-timeline-dot[data-done="true"] {
+    background-color: var(--primary);
+    box-shadow: 0 0 0 var(--ui-border-width) var(--primary);
+  }
+  .ui-timeline-line {
+    position: absolute;
+    top: 1.1em;
+    bottom: calc(var(--ui-gap-stack-x) * -0.5);
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background-color: var(--ui-border-color);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   FIGURE MARK
+   What sits under a headline number. Four treatments, no component changes:
+   the progress bar is masked, stripped or hidden from outside.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* The mask goes on the TRACK, not on `progress`.
+   `[data-slot="progress"]` is the wrapper, and in this component it also holds
+   the label and the value — so masking it combed the text as well, and
+   "Capacity today" came out with white slashes through the letters. A slot
+   named after the component is rarely the thing the component draws. */
+[data-ui-figure-mark="segments"] [data-slot="progress-track"] {
+  /* A level meter is a bar seen through a comb. The mask covers the track, so
+     the unfilled blocks stay visible as empty sockets rather than
+     disappearing with the fill. */
+  mask-image: repeating-linear-gradient(
+    to right,
+    black 0 var(--ui-segment-size),
+    transparent var(--ui-segment-size)
+      calc(var(--ui-segment-size) + var(--ui-segment-gap))
+  );
+  border-radius: 0;
+}
+
+[data-ui-figure-mark="segments"] [data-slot="progress-indicator"] {
+  border-radius: 0;
+}
+
+[data-ui-figure-mark="rule"] [data-slot="progress-track"] {
+  /* The track goes; what is left is a rule drawn as far as the value reaches. */
+  background: transparent;
+  height: var(--ui-border-width);
+  border-radius: 0;
+}
+
+[data-ui-figure-mark="none"] [data-slot="progress-track"] {
+  display: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   DELTA
+   How a change reads. `text` takes the chip's fill and border away; `arrow`
+   keeps the direction and drops the digits. Both are the same Badge.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* The badge here is a Tooltip trigger, and Base UI's `render` prop replaces
+   `data-slot` with its own — so the badge is only identifiable by the
+   `.group/badge` class it carries. The families already anchor on both for the
+   same reason; this rule has to as well or it silently matches nothing. */
+[data-ui-delta-style="text"] [data-slot="card-action"] :is([data-slot="badge"], .group\/badge),
+[data-ui-delta-style="arrow"] [data-slot="card-action"] :is([data-slot="badge"], .group\/badge) {
+  background: transparent;
+  border-color: transparent;
+  padding-inline: 0;
+  box-shadow: none;
+}
+
+/* This used to collapse the digits to `font-size: 0` and restore the icon, so
+   that "arrow" meant the direction WITHOUT the number.
+   
+   That is editing, not styling. The rule this project set for itself is that a
+   style may withdraw ornament and may not withdraw information, and a metric
+   card whose delta reads "↑" instead of "↑ +12,4%" has had a fact taken out of
+   it by a visual decision. The arrow now carries the direction and the number
+   stays; what the style drops is the chip around it. */
+[data-ui-delta-style="arrow"] [data-slot="card-action"] :is([data-slot="badge"], .group\/badge) svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PAGE TEXTURE
+   A dashboard is mostly empty page, and ours was the same flat field in every
+   style. Each texture is drawn from `--ui-edge` — the system's own line colour
+   — so it is never decoration laid over the system. It is the system, faint
+   and repeated.
+
+   The unit ties to `--ui-space`, so a compact style gets a finer weave and a
+   generous one a coarser one, without a second question being asked.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ui-texture-unit: calc(var(--ui-space) * 4);
+  --ui-texture-ink: color-mix(in oklch, var(--ui-edge), transparent 55%);
+}
+
+/* The texture goes on every element that paints the page colour, not just on
+   <body>. `sidebar-inset` covers the whole main column with its own opaque
+   `bg-background`, so a texture on <body> alone showed through the sidebar and
+   nowhere else — visible in the one place nobody looks. */
+body,
+[data-slot="sidebar-inset"] {
+  background-image: var(--ui-texture, none);
+  background-size: var(--ui-texture-size, auto);
+  /* Fixed, so the weave belongs to the window rather than to the element, and
+     the two surfaces line up into one continuous field instead of each
+     starting its own grid at its own origin. */
+  background-attachment: fixed;
+}
+
+/* Where a texture stops.
+ *
+ * An outlined panel has no fill — it is a window onto the page — which is
+ * unnoticeable when the page is a flat colour and unreadable when it has a
+ * weave: the label ends up printed over the grid.
+ *
+ * The blunt fix is to fill every panel whenever a texture is on. It works, and
+ * it costs something real: on a textured page `outline` and `flat` then look
+ * identical, so two of the three surface modes collapse into one.
+ *
+ * The distinction that actually matters is not transparency, it is STRUCTURE.
+ * A grid line is one pixel and a letter's stem is one or two, so they are the
+ * same size and they fight. Scanlines the same. Grain is sub-pixel noise on a
+ * 120px tile, and running under the text is precisely what paper does — the
+ * tooth is under the ink as well as around it.
+ *
+ * So structured textures stop at a panel; unstructured ones carry straight
+ * through, and `outline` keeps meaning what it means. */
+:root:is(
+    [data-ui-page-texture="grid"],
+    [data-ui-page-texture="dots"],
+    [data-ui-page-texture="scanlines"]
+  )[data-ui-surface="outline"] {
+  --ui-surface-bg: var(--background);
+}
+
+[data-ui-page-texture="grid"] {
+  --ui-texture:
+    repeating-linear-gradient(
+      to right,
+      var(--ui-texture-ink) 0 1px,
+      transparent 1px var(--ui-texture-unit)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--ui-texture-ink) 0 1px,
+      transparent 1px var(--ui-texture-unit)
+    );
+}
+
+[data-ui-page-texture="dots"] {
+  --ui-texture: radial-gradient(var(--ui-texture-ink) 1px, transparent 1px);
+  --ui-texture-size: var(--ui-texture-unit) var(--ui-texture-unit);
+}
+
+[data-ui-page-texture="scanlines"] {
+  /* Tied to the text size rather than the spacing unit: a scanline is a raster
+     line, and what it has to line up with is type, not layout. */
+  --ui-texture: repeating-linear-gradient(
+    to bottom,
+    var(--ui-texture-ink) 0 1px,
+    transparent 1px calc(var(--ui-text-sm) * 0.28)
+  );
+}
+
+[data-ui-page-texture="grain"] {
+  /* Fractal noise as a data URI, because the alternative is shipping an image
+     for something the renderer can generate. Two octaves is enough tooth to
+     read as paper and cheap enough not to show up in a paint profile. */
+  --ui-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  --ui-texture-size: 120px 120px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   SURFACE FINISH
+   A panel's fill was a colour and nothing else. What separates a contemporary
+   interface from a merely dark one is usually not the colour: it is the
+   one-pixel highlight along the top edge, or a fill very slightly lighter at
+   the top than the bottom.
+
+   All three are drawn from `--ui-ink`, so they follow the style rather than
+   assuming a dark background — a highlight on a white page is a light line on
+   light, which is correctly almost nothing.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-surface-finish="highlight"] .ui-surface,
+[data-ui-surface-finish="highlight"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"]
+  ) {
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklch, var(--ui-ink), transparent 88%),
+    var(--ui-shadow-surface);
+}
+
+[data-ui-surface-finish="gradient"] .ui-surface,
+[data-ui-surface-finish="gradient"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"]
+  ) {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--ui-ink), transparent 96%),
+    transparent 60%
+  );
+}
+
+/* Glass needs something behind it to be worth anything, so the panel gives up
+   part of its own fill rather than adding a layer on top of it. */
+[data-ui-surface-finish="glass"] .ui-surface,
+[data-ui-surface-finish="glass"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"]
+  ) {
+  background-color: color-mix(in oklch, var(--ui-surface-bg), transparent 30%);
+  backdrop-filter: blur(12px) saturate(1.4);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   RULES
+   A separator was always one hairline. It is among the oldest decisions in
+   printing and it carries a period almost by itself: a double rule reads as a
+   title page, a lozenge between two rules as a chapter break, a groove as
+   something moulded out of plastic in 1995.
+
+   Every treatment is a background on the existing separator. The component is
+   untouched, and a vertical separator keeps the hairline it had, because none
+   of these read the same turned on their side.
+
+   `sidebar-separator` is a second slot for the same idea; the `rule` family
+   in `families.css` owns their shared geometry and both are members, so every
+   treatment below reaches the sidebar too.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  --ui-rule-h: var(--ui-border-width);
+  height: var(--ui-rule-h);
+}
+
+[data-ui-rule-style="double"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  --ui-rule-h: calc(var(--ui-border-width) * 4);
+  background: linear-gradient(
+    to bottom,
+    var(--ui-edge) 0 var(--ui-border-width),
+    transparent var(--ui-border-width) calc(var(--ui-border-width) * 3),
+    var(--ui-edge) calc(var(--ui-border-width) * 3) 100%
+  );
+}
+
+[data-ui-rule-style="dotted"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  background: repeating-linear-gradient(
+    to right,
+    var(--ui-edge) 0 var(--ui-border-width),
+    transparent var(--ui-border-width) calc(var(--ui-border-width) * 3)
+  );
+}
+
+/* Cut into the surface: the dark edge above, the light one below, which is
+   what "engraved" meant when every control was a bevel. */
+[data-ui-rule-style="groove"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  --ui-rule-h: calc(var(--ui-border-width) * 2);
+  background: linear-gradient(
+    to bottom,
+    var(--ui-edge) 0 50%,
+    color-mix(in oklch, var(--background), var(--ui-ink) 4%) 50% 100%
+  );
+}
+
+[data-ui-rule-style="fade"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  background: linear-gradient(to right, transparent, var(--ui-edge) 30% 70%, transparent);
+}
+
+[data-ui-rule-style="none"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  background: transparent;
+}
+
+/* A lozenge between two rules. Drawn as a rotated square rather than set as a
+   fleuron, because a glyph is only there if the chosen face happens to carry
+   it and this has to hold across nineteen of them. */
+[data-ui-rule-style="ornament"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"] {
+  --ui-rule-h: calc(var(--ui-space) * 2.5);
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+      to right,
+      var(--ui-edge) 0 calc(50% - var(--ui-space) * 2),
+      transparent calc(50% - var(--ui-space) * 2) calc(50% + var(--ui-space) * 2),
+      var(--ui-edge) calc(50% + var(--ui-space) * 2) 100%
+    )
+    center / 100% var(--ui-border-width) no-repeat;
+}
+
+[data-ui-rule-style="ornament"] :is([data-slot="separator"], [data-slot="sidebar-separator"])[data-orientation="horizontal"]::before {
+  content: "";
+  width: calc(var(--ui-space) * 1.4);
+  height: calc(var(--ui-space) * 1.4);
+  rotate: 45deg;
+  background: var(--ui-edge);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   ICONS, WITHDRAWN
+   A gallery minimal and a typographic eighteenth-century page would both set
+   an interface in words alone. An icon beside a label that already reads
+   "Shipments" adds nothing: the word is the meaning and the icon is a repetition.
+
+   What does NOT go is an icon standing alone. There the icon is the only thing
+   saying what the control does, and removing it removes the function rather
+   than the ornament. So the rule fires on leading icons in labelled controls,
+   the same set the `leading-icon` family governs, and nowhere else.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-icon-family="none"]
+  :where(
+    [data-slot="button"],
+    .group\/button,
+    [data-slot="badge"],
+    .group\/badge,
+    [data-slot="tabs-trigger"],
+    [data-slot="sidebar-menu-button"],
+    .group\/menu-button,
+    [data-slot="dropdown-menu-item"],
+    [data-slot="context-menu-item"],
+    [data-slot="menubar-item"],
+    [data-slot="command-item"]
+  ):not([data-size^="icon"])
+  > svg:first-child:not([data-ui-role]) {
+  display: none;
+}
+
+/* The supporting line under a figure carries its own small icon, which is the
+   same repetition one level down. */
+[data-ui-icon-family="none"] [data-slot="card-footer"] svg {
+  display: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   TABLES
+   The largest surface in the console, and the one every style left alone: a
+   rule under each row and a faint fill on hover, the same in all of them.
+   How rows are told apart is one of the oldest decisions in setting tabular
+   matter, and the four here are the four that exist.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-table-style="striped"] [data-slot="table-row"],
+[data-ui-table-style="bare"] [data-slot="table-row"] {
+  border-bottom-color: transparent;
+}
+
+/* `:nth-child(even)` over rows, not over cells: the stripe belongs to the
+   record, and a tint on the row survives a cell that spans two of them. */
+[data-ui-table-style="striped"] [data-slot="table-body"] [data-slot="table-row"]:nth-child(even) {
+  background-color: color-mix(in oklch, var(--background), var(--ui-ink) 4%);
+}
+
+/* A ledger rules every cell on every side. The header keeps its own weight so
+   the grid reads as a table rather than as graph paper. */
+[data-ui-table-style="boxed"] :is([data-slot="table-cell"], [data-slot="table-head"]) {
+  border: var(--ui-border-width) solid var(--ui-edge);
+}
+
+[data-ui-table-style="boxed"] [data-slot="table"] {
+  border-collapse: collapse;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   CORNER SHAPE
+   A corner was only ever an arc, by an amount. A head-up display chamfers its
+   corners and a ticket notches them, and neither is a rounder or squarer
+   version of the other — they are different shapes at the same radius.
+
+   `corner-shape` composes with `border-radius`, so nothing about the radius
+   system changes: the radius still says how much corner there is, and this
+   says what kind. Where the property is unsupported the corner stays an arc,
+   which is the right thing to degrade to.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@supports (corner-shape: bevel) {
+  [data-ui-corner-style="bevel"] [data-slot],
+  [data-ui-corner-style="bevel"] .ui-surface {
+    corner-shape: bevel;
+  }
+  [data-ui-corner-style="notch"] [data-slot],
+  [data-ui-corner-style="notch"] .ui-surface {
+    corner-shape: notch;
+  }
+  [data-ui-corner-style="squircle"] [data-slot],
+  [data-ui-corner-style="squircle"] .ui-surface {
+    corner-shape: squircle;
+  }
+
+  /* An indicator is round on purpose: a status dot, a radio mark, the thumb of
+     a switch. These are not surfaces, they are marks, and a chamfered dot is
+     not a style choice but a rendering artefact.
+
+     The avatar used to be on this list and is not any more. It IS a surface —
+     it holds a portrait — and a portrait in a square frame is an ordinary and
+     very old thing to do. Pinning it round made it the one element on the page
+     that ignored the brief, which is exactly the failure this engine exists to
+     avoid. */
+  [data-ui-corner-style] :is(
+      [data-slot="radio-group-indicator"],
+      [data-slot="switch-thumb"],
+      .ui-dot
+    ) {
+    corner-shape: round;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   BRACKETS
+   A head-up display does not draw a box. It draws four corners and leaves the
+   sides open, and that single habit says "machine reading out a value" more
+   than any colour does.
+
+   The brackets go on a pseudo-element rather than on the panel's own
+   background, because the panel's background is already spoken for by the
+   texture and the surface finish. Eight gradients: two arms per corner, each
+   as long as three spacing units and as thick as the system's line.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Its own colour, not `--ui-edge` directly: the engine publishes `--ui-edge`
+   as an inline style on <html>, and an inline style beats any stylesheet rule
+   — so the emissive override below could never have reached it. A variable the
+   stylesheet owns can be redefined by the stylesheet. */
+:root {
+  --ui-bracket-color: var(--ui-edge);
+}
+
+[data-ui-borders="brackets"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"],
+    .ui-surface
+  ) {
+  border-color: transparent;
+}
+
+/* The pseudo-element below needs a positioned ancestor, and `position:
+   relative` is what gives one to a card, which is otherwise static. It must
+   NOT be handed to a panel that already positions itself. A sheet and a dialog
+   are `fixed`, set by a utility class — and this stylesheet is unlayered, so a
+   plain `position: relative` here beats it. The panel then falls into the
+   document flow and lays out at the BOTTOM of the page, shoving everything
+   above it upward. Measured with `brackets` on: the sheet went from `fixed` to
+   `relative`, the document grew 324px while it was open, and `.ui-page` moved
+   from 79..757 to -215..463. Those two are already positioned, so the
+   pseudo-element anchors to them without any help. */
+[data-ui-borders="brackets"] :is(
+    [data-slot="card"],
+    [data-slot="popover-content"],
+    .ui-surface
+  ) {
+  position: relative;
+}
+
+[data-ui-borders="brackets"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"],
+    .ui-surface
+  )::after {
+  --ui-bracket-arm: calc(var(--ui-space) * 3.5);
+  --ui-bracket-ink: linear-gradient(var(--ui-bracket-color), var(--ui-bracket-color));
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    var(--ui-bracket-ink), var(--ui-bracket-ink),
+    var(--ui-bracket-ink), var(--ui-bracket-ink),
+    var(--ui-bracket-ink), var(--ui-bracket-ink),
+    var(--ui-bracket-ink), var(--ui-bracket-ink);
+  background-repeat: no-repeat;
+  background-position:
+    0 0, 0 0,
+    100% 0, 100% 0,
+    0 100%, 0 100%,
+    100% 100%, 100% 100%;
+  background-size:
+    var(--ui-bracket-arm) var(--ui-border-width), var(--ui-border-width) var(--ui-bracket-arm),
+    var(--ui-bracket-arm) var(--ui-border-width), var(--ui-border-width) var(--ui-bracket-arm),
+    var(--ui-bracket-arm) var(--ui-border-width), var(--ui-border-width) var(--ui-bracket-arm),
+    var(--ui-bracket-arm) var(--ui-border-width), var(--ui-border-width) var(--ui-bracket-arm);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   EMISSIVE
+   `glow` already exists as a DEPTH: the panel floats and casts light. This is
+   different and is what a readout actually does — the outline itself is lit,
+   inside and out, and the panel does not float at all.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-surface-finish="emissive"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"],
+    .ui-surface
+  ) {
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 0 calc(var(--ui-space) * 2.5) -2px var(--ui-accent),
+    inset 0 0 calc(var(--ui-space) * 3) -4px var(--ui-accent);
+}
+
+/* A lit outline needs lit brackets, or the corners read as a different system
+   from the panel they belong to. */
+[data-ui-surface-finish="emissive"] {
+  --ui-bracket-color: var(--ui-accent);
+}
+
+/* The running text takes its own tracking. It was set solid in every style,
+   including the ones that space out every label around it. */
+body {
+  letter-spacing: var(--ui-tracking-body);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   DIAGONAL CORNERS
+   Two opposite corners cut off hard, the other two left square, so the panel
+   reads as a slanted plate rather than a box. `corner-shape` and
+   `border-radius` are both per-corner, so this needs no clipping — which
+   matters, because a clip-path would take the glow and the shadow with it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@supports (corner-shape: bevel) {
+  [data-ui-corner-style="diagonal"] :is(
+      [data-slot="card"],
+      [data-slot="dialog-content"],
+      [data-slot="popover-content"],
+      [data-slot="sheet-content"],
+      .ui-surface
+    ) {
+    /* The cut carries its own floor. Derived from the surface radius alone it
+       vanished on exactly the styles that want it most: a cockpit sets its
+       radius to zero, and zero times any multiplier is still a square box. A
+       chamfer is not "more radius", it is its own amount. */
+    --ui-corner-cut: max(calc(var(--ui-radius-surface) * 3.5), calc(var(--ui-space) * 3.5));
+    corner-top-right-shape: bevel;
+    corner-bottom-left-shape: bevel;
+    border-top-right-radius: var(--ui-corner-cut);
+    border-bottom-left-radius: var(--ui-corner-cut);
+    border-top-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   TICKS
+   Graduations along the edges, the way an instrument marks a scale. Same
+   pseudo-element the brackets use, so a panel never has to carry both.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-borders="ticks"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"],
+    .ui-surface
+  ) {
+  border-color: transparent;
+}
+
+/* The pseudo-element below needs a positioned ancestor, and `position:
+   relative` is what gives one to a card, which is otherwise static. It must
+   NOT be handed to a panel that already positions itself. A sheet and a dialog
+   are `fixed`, set by a utility class — and this stylesheet is unlayered, so a
+   plain `position: relative` here beats it. The panel then falls into the
+   document flow and lays out at the BOTTOM of the page, shoving everything
+   above it upward. Measured with `brackets` on: the sheet went from `fixed` to
+   `relative`, the document grew 324px while it was open, and `.ui-page` moved
+   from 79..757 to -215..463. Those two are already positioned, so the
+   pseudo-element anchors to them without any help. */
+[data-ui-borders="ticks"] :is(
+    [data-slot="card"],
+    [data-slot="popover-content"],
+    .ui-surface
+  ) {
+  position: relative;
+}
+
+[data-ui-borders="ticks"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    [data-slot="popover-content"],
+    [data-slot="sheet-content"],
+    .ui-surface
+  )::after {
+  --ui-tick-step: calc(var(--ui-space) * 3);
+  --ui-tick-len: calc(var(--ui-space) * 1.2);
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--ui-bracket-color) 0 var(--ui-border-width),
+      transparent var(--ui-border-width) var(--ui-tick-step)
+    ),
+    repeating-linear-gradient(
+      to right,
+      var(--ui-bracket-color) 0 var(--ui-border-width),
+      transparent var(--ui-border-width) var(--ui-tick-step)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--ui-bracket-color) 0 var(--ui-border-width),
+      transparent var(--ui-border-width) var(--ui-tick-step)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--ui-bracket-color) 0 var(--ui-border-width),
+      transparent var(--ui-border-width) var(--ui-tick-step)
+    );
+  background-repeat: no-repeat;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  background-size:
+    100% var(--ui-tick-len), 100% var(--ui-tick-len),
+    var(--ui-tick-len) 100%, var(--ui-tick-len) 100%;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   EMISSIVE TYPE
+   A lit panel with unlit text is a box with a light behind it. A readout emits
+   from the glyphs themselves, so when the surface is emissive the type is too.
+   Derived, not asked: they are the same decision seen twice.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-ui-surface-finish="emissive"] {
+  --ui-type-glow: 0 0 calc(var(--ui-space) * 2) color-mix(in oklch, var(--ui-accent), transparent 45%);
+}
+
+[data-ui-surface-finish="emissive"] .ui-title,
+[data-ui-surface-finish="emissive"] [data-ui-title-role="metric"],
+[data-ui-surface-finish="emissive"] [data-ui-title-role="display"] {
+  text-shadow: var(--ui-type-glow);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   SIGNAL
+   A situation room does not look like a design. It looks like a SCREEN being
+   looked at: the tube falls off at its corners, the glyphs fringe where the
+   channels do not quite line up, and there is noise under everything.
+
+   These are not three decisions. They are one physical thing arriving badly,
+   which is why they are asked as an intensity and why each rung adds to the
+   one below rather than replacing it.
+
+   The overlay is fixed to the viewport, not to the page: a tube darkens at the
+   edges of the GLASS, and a vignette that scrolled with the content would be
+   an illustration of one rather than the thing itself.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: var(--ui-signal-fall, 0);
+  background:
+    radial-gradient(
+      ellipse 120% 120% at 50% 50%,
+      transparent 45%,
+      color-mix(in oklch, var(--ui-ink), transparent 100%) 55%,
+      oklch(0 0 0 / 0.55) 100%
+    );
+}
+
+[data-ui-signal="1"] { --ui-signal-fall: 0.5; }
+[data-ui-signal="2"] { --ui-signal-fall: 0.8; }
+[data-ui-signal="3"] { --ui-signal-fall: 1; }
+
+/* Chromatic fringing: the channels miss each other by a fraction of a pixel.
+   It goes on the display type only — at body size it stops being an artefact
+   and becomes an inability to read. */
+[data-ui-signal="2"] .ui-title,
+[data-ui-signal="2"] [data-ui-title-role="metric"],
+[data-ui-signal="2"] [data-ui-title-role="display"],
+[data-ui-signal="3"] .ui-title,
+[data-ui-signal="3"] [data-ui-title-role="metric"],
+[data-ui-signal="3"] [data-ui-title-role="display"] {
+  text-shadow:
+    -0.04em 0 0 oklch(0.62 0.24 25 / 0.55),
+    0.04em 0 0 oklch(0.72 0.16 205 / 0.55),
+    var(--ui-type-glow, 0 0 transparent);
+}
+
+/* At the last rung the noise is over everything, and the fall-off is enough
+   that the corners of the screen are genuinely darker than the middle. */
+[data-ui-signal="3"] body::after {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E"),
+    radial-gradient(
+      ellipse 110% 110% at 50% 50%,
+      transparent 35%,
+      oklch(0 0 0 / 0.72) 100%
+    );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   AMBIENT MOTION
+   Everything else in this engine moves only when touched. This is what moves
+   on its own, and it is the whole difference between a screen and a printed
+   page: a terminal blinks, an alarm pulses, a radar sweeps, and none of it is
+   waiting for you.
+
+   Nothing here animates geometry. Opacity, light and a background position —
+   the rule this system set itself for transitions holds for ambience too, and
+   for the same reason: a layout that moves by itself is a layout nobody can
+   read.
+
+   Everything is also long. A dashboard is watched for a whole shift, and a
+   half-second pulse that is charming for a minute is unbearable by the third
+   hour.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes ui-blink {
+  0%, 44% { opacity: 1; }
+  50%, 94% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+@keyframes ui-breathe {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.09); }
+}
+
+/* A third of the cycle is the pass; the rest is the wait. A radar spends most
+   of its time somewhere else, and so should this. */
+@keyframes ui-sweep {
+  0% { background-position: -80% 0; }
+  45%, 100% { background-position: 180% 0; }
+}
+
+/* Only what is raising an alarm blinks. A blinking interface is a broken one;
+   a blinking warning is a warning. */
+[data-ui-ambient="blink"] :is(
+    [data-slot="badge"][data-variant="destructive"],
+    .group\/badge[data-variant="destructive"],
+    .ui-dot
+  ) {
+  animation: ui-blink 2.4s steps(1, end) infinite;
+}
+
+/* Breathing belongs to the lit parts, not to the panel: an unlit surface that
+   brightens is a light leak, not a display idling. */
+[data-ui-ambient="breathe"] :is(
+    [data-slot="progress-indicator"],
+    [data-slot="badge"],
+    .group\/badge
+  ) {
+  animation: ui-breathe 6s ease-in-out infinite;
+}
+
+[data-ui-ambient="sweep"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    .ui-surface
+  ) {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-ui-ambient="sweep"] :is(
+    [data-slot="card"],
+    [data-slot="dialog-content"],
+    .ui-surface
+  )::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  /* Broad and faint, not narrow and bright.
+     
+     Two versions were wrong in opposite ways. The first was a band across half
+     the panel at 40% opacity — a stripe, not something passing. Narrowing it
+     only moved the problem: a thin band with a steep falloff still has an
+     EDGE, and an edge reads as an object crossing the panel rather than as
+     light moving over it.
+     
+     What makes it read as light is a wide spread with no discernible boundary,
+     so the peak is barely there and the falloff takes the whole width. Many
+     stops rather than three, because the curve is what is being drawn. */
+  background: linear-gradient(
+      100deg,
+      transparent 0%,
+      color-mix(in oklch, var(--ui-accent), transparent 98%) 18%,
+      color-mix(in oklch, var(--ui-accent), transparent 95%) 34%,
+      color-mix(in oklch, var(--ui-accent), transparent 92%) 50%,
+      color-mix(in oklch, var(--ui-accent), transparent 95%) 66%,
+      color-mix(in oklch, var(--ui-accent), transparent 98%) 82%,
+      transparent 100%
+    )
+    no-repeat;
+  background-size: 75% 100%;
+  animation: ui-sweep 14s linear infinite;
+}
+
+/* Someone who has asked their system not to animate has asked for all of it,
+   including the parts that never waited for them. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-ambient] *,
+  [data-ui-ambient] *::before {
+    animation: none !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   SILHOUETTE
+   Every style this engine produced had the same one: a sidebar of a single
+   width, four figures across, one wide panel beside one narrow. Colour, shape
+   and type all moved and the shape of the page never did — which is why thirty
+   styles could look different and still feel like one product in outfits.
+
+   The components name what a thing IS (`ui-figures`, `ui-panels`, a major
+   panel) and the engine decides how it sits. They used to carry their own
+   column counts in utility classes, which meant the one decision the engine
+   could not reach was the first one anybody notices.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.ui-figures,
+.ui-panels {
+  display: grid;
+  gap: var(--ui-gap-section-x);
+  min-width: 0;
+}
+
+/* Below this there is no silhouette to choose: everything is one column
+   because nothing else fits, and a style that insists otherwise is asking for
+   a horizontal scrollbar. */
+.ui-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ui-panels { grid-template-columns: minmax(0, 1fr); }
+
+@media (min-width: 80rem) {
+  [data-ui-figure-layout="row"] .ui-figures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-ui-figure-layout="grid"] .ui-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* One number leads and the others attend it. The lead spans both rows of a
+     three-column block, so it is twice the height as well as twice the width —
+     a figure that is merely wider reads as a stretched card, not as a lead. */
+  [data-ui-figure-layout="lead"] .ui-figures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-ui-figure-layout="lead"] .ui-figures > :first-child {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+
+  [data-ui-panel-split="majorMinor"] .ui-panels { grid-template-columns: 2fr 1fr; }
+  [data-ui-panel-split="equal"] .ui-panels { grid-template-columns: 1fr 1fr; }
+  [data-ui-panel-split="minorMajor"] .ui-panels { grid-template-columns: 1fr 2fr; }
+  [data-ui-panel-split="stacked"] .ui-panels { grid-template-columns: minmax(0, 1fr); }
+
+  /* The narrow-first reading puts the minor panel before the major one without
+     moving it in the markup: the order is a presentation decision, and a
+     screen reader should still hear the overview first. */
+  [data-ui-panel-split="minorMajor"] .ui-panels > [data-ui-panel="major"] {
+    order: 1;
+  }
+}
+
+/* How far the content stretches. A line of figures running the full width of a
+   wide monitor is not a layout decision anyone made; it is the absence of one. */
+[data-ui-measure="wide"] .ui-page { max-width: 90rem; }
+[data-ui-measure="reading"] .ui-page { max-width: 64rem; }
+[data-ui-measure="wide"] .ui-page,
+[data-ui-measure="reading"] .ui-page {
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* The navigation's width is the engine's, not a constant in a component.
+   Published under a name the stylesheet owns: the component sets
+   `--sidebar-width` inline, and an inline style cannot be overridden from here,
+   so it defers to this instead. */
+[data-ui-nav-width="narrow"] { --ui-nav-width: 12rem; }
+[data-ui-nav-width="regular"] { --ui-nav-width: 16rem; }
+[data-ui-nav-width="wide"] { --ui-nav-width: 20rem; }
+
+
+/* ═══ AVATARS ══════════════════════════════════════════════════════════════
+   The circle was a hardcoded Tailwind size and the initials inside it were
+   not: they carried `text-sm`, which this project remaps onto the engine's
+   scale. So the type grew with the style and the box it sits in never did. At
+   a generous style two capitals came to 16.8px inside a 32px circle and sat
+   against the ring; at a compact one they rattled around in it.
+
+   This is the same defect as the frozen type ladder, one component further
+   down: a literal that stops following the engine while everything around it
+   keeps moving.
+
+   The box now comes from the control height, because an avatar sits in rows
+   with controls and should measure like one. The initials are then sized
+   against the BOX rather than against the page, which is what makes two
+   capitals fit at every style instead of at one of them.
+
+   The three steps stay the component's own (`size="sm" | "default" | "lg"`),
+   so a call site still says how prominent a portrait is. It just says it in
+   steps of the system rather than in pixels of its own.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:is([data-slot="avatar"], [data-slot="avatar-group-count"]) {
+  --ui-avatar-size: calc(var(--ui-control-height-x) * 0.9);
+  width: var(--ui-avatar-size);
+  height: var(--ui-avatar-size);
+  font-size: calc(var(--ui-avatar-size) * 0.42);
+}
+:is([data-slot="avatar"], [data-slot="avatar-group-count"])[data-size="sm"],
+[data-slot="avatar"][data-size="sm"] [data-slot="avatar-fallback"],
+[data-size="sm"] > [data-slot="avatar-group-count"] {
+  --ui-avatar-size: calc(var(--ui-control-height-x) * 0.72);
+}
+:is([data-slot="avatar"], [data-slot="avatar-group-count"])[data-size="lg"] {
+  --ui-avatar-size: calc(var(--ui-control-height-x) * 1.12);
+}
+
+/* The fallback inherits the box's own measure, so it never needs to know what
+   the page's font size is. */
+[data-slot="avatar-fallback"] {
+  font-size: inherit;
+}
+
+/* The corner is the engine's too, and it was not: the component hardcodes
+   `rounded-full`, so a brutalist style with a radius of zero still drew perfect
+   circles for its portraits.
+
+   Deriving it from the control radius needs no special case for "round": the
+   top rung of that ladder is 1rem, and 1rem is more than half of any avatar
+   here, so a rounded style still gets a circle. A square style gets a square.
+   Nothing had to be told which one it was. */
+:is(
+  [data-slot="avatar"],
+  [data-slot="avatar-image"],
+  [data-slot="avatar-fallback"],
+  [data-slot="avatar-group-count"]
+),
+[data-slot="avatar"]::after {
+  border-radius: var(--ui-radius-control);
+}
+
+/* ═══ THE iOS ZOOM FLOOR ═══════════════════════════════════════════════════
+   Safari on iOS zooms the whole page when a text field is focused and its
+   computed font-size is under 16px. It is not a preference and there is no way
+   to decline it: the page scales, the layout shifts under the keyboard, and it
+   does not scale back when the field blurs.
+
+   This applies to ONE field. Every other input on the page belongs to the
+   product being styled, and a floor on all of them would be the engine's
+   decision overridden everywhere a phone is held. The design brief belongs to
+   the tool that does the styling, not to the product: it is the field a person
+   types a sentence into to change everything else, and it is the one that has
+   to keep working whatever the engine answered for a font size.
+
+   The other way out is `maximum-scale=1` in the viewport, and that is not a
+   fix: it buys this by taking pinch-zoom away from everyone, including the
+   people who need it to read at all.
+
+   `max()` and not a flat 16px, so a style that asks for larger text still gets
+   it here; 16px is a floor, not a size.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (pointer: coarse) {
+  #style-brief {
+    font-size: max(16px, var(--ui-text-sm));
+  }
+}
+
+/* ═══ SMALL SCREENS ════════════════════════════════════════════════════════
+   A phone is not a narrow desktop, and only two things change here.
+
+   The first is how much of the viewport goes to empty space. The engine picks
+   the gaps from the style's density, and a spacious style asks for gutters
+   that are a reasonable fraction of a monitor and a third of a 375px screen.
+   The tokens still follow the engine; they stop growing past what the viewport
+   has to give.
+
+   The second is the silhouette. The figure and panel layouts already collapse
+   below 80rem because nothing else fits; below 30rem the same is true of two
+   columns of figures.
+
+   What does NOT change is anything a finger has to hit. Control heights,
+   padding inside controls and hit areas stay exactly where the engine put
+   them: the touch target is the one measurement a narrow screen makes more
+   important, not less.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 47.99rem) {
+  :root {
+    --ui-gap-section-x: min(calc(var(--ui-gap-section) * var(--ui-density-k)), 1rem);
+    --ui-gap-stack-x: min(calc(var(--ui-gap-stack) * var(--ui-density-k)), 1rem);
+    --ui-pad-surface-x: min(calc(var(--ui-pad-surface) * var(--ui-density-k)), 1rem);
+  }
+
+  /* A label beside its control is a two-column field, and two columns of a
+     390px viewport is a label of 10rem and a control of 11. The placement is
+     the engine's decision everywhere it has the room to mean something; here
+     it does not, for the same reason the figure and panel silhouettes collapse
+     rather than being chosen. The grid goes back to the ordinary stacked
+     field, and the description that was pinned to the second column returns
+     to the flow. */
+  [data-ui-label-placement="start"] [data-slot="field"][data-orientation="vertical"] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ui-gap-field-x);
+  }
+  [data-ui-label-placement="start"]
+    [data-slot="field"][data-orientation="vertical"]
+    > :is([data-slot="field-description"], [data-slot="field-error"]) {
+    grid-column: auto;
+  }
+
+  /* A row of controls that cannot fit wraps instead of pushing the page wider.
+     Each control keeps the height the family gives it, so the contract that
+     one row is one height still holds for each line; the row grows a line
+     rather than the page growing a scrollbar. Without this a generated style
+     with generous control padding overflows a 320px viewport by 70px, and
+     nothing on the row is allowed to give. */
+  .ui-toolbar,
+  .ui-controls,
+  .ui-actions {
+    flex-wrap: wrap;
+  }
+
+  /* The gutters clear the notch in landscape and the home indicator at the
+     bottom. `viewport-fit=cover` in the document's viewport is what makes
+     these insets non-zero. */
+  .ui-page {
+    padding-inline: max(
+      var(--ui-gap-section-x),
+      env(safe-area-inset-left),
+      env(safe-area-inset-right)
+    );
+    padding-bottom: calc(var(--ui-gap-section-x) + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 30rem) {
+  .ui-figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* ═══ SURFACES AGAINST THE EDGE OF THE SCREEN ═════════════════════════════
+   A corner that sits on the edge of the viewport is not a corner. The side
+   panel is pinned to the top, the bottom and one side at every width, and on a
+   phone it spans all four — so a style with a generous surface radius cut four
+   notches out of its own edges and showed the dimmed page through them.
+
+   Only the edge that is genuinely inside the viewport keeps its corner. The
+   radius is still the engine's; what changes is which corners exist.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-slot="sheet-content"][data-side="right"] {
+  border-radius: var(--ui-radius-surface) 0 0 var(--ui-radius-surface);
+}
+[data-slot="sheet-content"][data-side="left"] {
+  border-radius: 0 var(--ui-radius-surface) var(--ui-radius-surface) 0;
+}
+[data-slot="sheet-content"][data-side="bottom"] {
+  border-radius: var(--ui-radius-surface) var(--ui-radius-surface) 0 0;
+}
+[data-slot="sheet-content"][data-side="top"] {
+  border-radius: 0 0 var(--ui-radius-surface) var(--ui-radius-surface);
+}
+
+@media (max-width: 47.99rem) {
+  /* Full width on a phone: every edge is the screen's edge.
+
+     `[data-side]` is not decoration — it matches the specificity of the rules
+     above, which a media query does not raise on its own. Without it this lost
+     to `[data-side="right"]` no matter what order it was written in. */
+  [data-slot="sheet-content"][data-side] {
+    border-radius: 0;
+  }
+}
+
+/* ═══ THE SECTION BAR ══════════════════════════════════════════════════════
+   The five sections, on a phone, at the bottom.
+
+   They were a tab strip at the top, duplicated by the navigation drawer, and
+   between them they took 124px of an 844px viewport. They also took the part
+   of the screen a thumb reaches last: everything actionable in this console
+   sat inside the top 140px, which is upside down for the controls a person
+   uses most.
+
+   Like everything else here the bar takes its measurements from the engine.
+   The height comes from the control height because each slot IS a control,
+   and the fill and the edge are the page's own, so a generated style dresses
+   the bar without being asked to.
+
+   `z-index` is 30: below the floating trigger (40), below the sheet it opens
+   (50) and below the signal overlay (60).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ui-tabbar-h: calc(var(--ui-control-height-x) * 1.55);
+}
+
+.ui-tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: stretch;
+  height: calc(var(--ui-tabbar-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--background);
+  border-top: var(--ui-border-width) solid var(--ui-edge);
+}
+
+.ui-tabbar-item {
+  display: flex;
+  flex: 1 1 0%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--ui-gap-hairline-x) + 1px);
+  padding-inline: calc(var(--ui-space) * 0.5);
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-text-xs);
+  font-weight: var(--ui-weight-control);
+  color: var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--ui-duration) var(--ui-easing);
+}
+
+.ui-tabbar-item > svg {
+  width: calc(var(--ui-text-sm) * 1.25);
+  height: calc(var(--ui-text-sm) * 1.25);
+  flex-shrink: 0;
+}
+
+/* The active slot is named by colour and not by a fill, because the bar sits
+   over the page and a filled slot at the foot of the screen reads as a button
+   somebody is pressing. */
+.ui-tabbar-item[data-active] {
+  color: var(--ui-accent, var(--primary));
+}
+
+/* The bar exists only where there is no room for a sidebar. Hiding it with a
+   utility class did not work and could not: this file is unlayered, so its
+   `display: flex` outranks Tailwind's layered `md:hidden` whatever the
+   specificity says. The family owns its own breakpoint — and the rule has to
+   come AFTER the one it overrides, which is the second way this went wrong:
+   declared above it, the base `display: flex` simply won on order. */
+@media (min-width: 48rem) {
+  .ui-tabbar {
+    display: none;
+  }
+}
+
+/* ═══ THE DESIGN TRIGGER ═══════════════════════════════════════════════════
+   The one control on the page that is not part of the product being shown: it
+   is how the product gets changed. In the header it sat in a row of shift
+   tools and read as one more of them, which is backwards for a demo whose
+   whole subject is the styling.
+
+   So it floats. What it does NOT do is opt out of the engine: the height comes
+   from the control height, the corner from the control radius, the fill from
+   the accent and the shadow from the overlay shadow. A permanently round
+   button over a brutalist style would be the single element on the page not
+   listening to the brief, which is the one thing this control cannot be.
+
+   It sits opposite the navigation, because the navigation is full height on a
+   desktop and a trigger pinned over it is a trigger sitting on top of the menu
+   it has nothing to do with.
+
+   `z-index` is 40: under the sheet it opens (50) and under the signal overlay
+   (60), which is fixed to the viewport and stands in for the glass of a tube.
+   A control floating above the glass is outside the screen it belongs to.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ui-fab-h: calc(var(--ui-control-height-x) * 1.35);
+}
+
+.ui-fab {
+  position: fixed;
+  z-index: 40;
+  height: var(--ui-fab-h);
+  padding-inline: calc(var(--ui-control-pad-x-x) * 1.2);
+  box-shadow: var(--ui-shadow-overlay);
+  /* The inset clears the home indicator on a phone and is the ordinary page
+     gutter everywhere else. */
+  bottom: max(
+    var(--ui-gap-section-x),
+    calc(env(safe-area-inset-bottom) + var(--ui-gap-inline-x))
+  );
+}
+
+/* Above the section bar, wherever the bar exists. The bar already carries the
+   safe-area inset, so adding it again here would double it. */
+@media (max-width: 47.99rem) {
+  .ui-fab {
+    bottom: calc(
+      var(--ui-tabbar-h) + env(safe-area-inset-bottom) + var(--ui-gap-inline-x)
+    );
+  }
+}
+
+[data-ui-nav-side="left"] .ui-fab {
+  right: max(
+    var(--ui-gap-section-x),
+    calc(env(safe-area-inset-right) + var(--ui-gap-inline-x))
+  );
+}
+
+[data-ui-nav-side="right"] .ui-fab {
+  left: max(
+    var(--ui-gap-section-x),
+    calc(env(safe-area-inset-left) + var(--ui-gap-inline-x))
+  );
+}

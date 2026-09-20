@@ -1,0 +1,60 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPATIBILITY — the narrow set of upstream `!important` utilities that the
+   engine has to defeat.
+
+   Specificity cannot beat `!important`, and adding unlayered `!important`
+   everywhere does not fix it either: for important declarations the layer
+   order is REVERSED, so an important rule in an earlier layer outranks an
+   important utility in a later one. `@layer base` comes before `utilities`,
+   which makes it the right home for these corrections.
+
+   Every entry here is a known conflict with a specific upstream utility, and
+   every value is token-driven. This file should stay short. If it grows, the
+   right answer is usually to stop fighting the component and adapt it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* command.tsx ships `rounded-xl!` on the root and `rounded-lg!` on its
+     items, which would keep round corners under a zero-radius preset. */
+  [data-slot="command"] {
+    /* Reads the same local input as the family rule, so an embedded Command
+       and its published child radius stay in agreement. */
+    border-radius: var(--ui-command-radius, var(--ui-radius-surface)) !important;
+  }
+  [data-slot="command-item"] {
+    border-radius: var(--ui-radius-child, var(--ui-radius-control)) !important;
+  }
+
+  /* command.tsx also pins its input group to `h-8!` and `rounded-lg!`, which
+     would ignore the control height entirely. */
+  [data-slot="command-input-wrapper"] [data-slot="input-group"] {
+    height: var(--ui-control-h) !important;
+    min-height: var(--ui-control-h) !important;
+    border-radius: var(--ui-radius-control) !important;
+  }
+
+  /* button-group.tsx forces `rounded-r-lg!` / `rounded-b-lg!` on its last
+     member. The joined-group contract owns those corners instead — and it has
+     to pick the last member the same way the family does, or a trailing hidden
+     element leaves the upstream important radius in charge. */
+  [data-slot="button-group"]:where([data-orientation="horizontal"], :not([data-orientation]))
+    > :nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+    border-start-end-radius: var(--ui-radius-child, var(--ui-radius-control)) !important;
+    border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control)) !important;
+  }
+  [data-slot="button-group"]:where([data-orientation="horizontal"], :not([data-orientation]))
+    > :where([data-slot], .group\/button):not(:nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)) {
+    border-start-end-radius: 0 !important;
+    border-end-end-radius: 0 !important;
+  }
+  [data-slot="button-group"][data-orientation="vertical"]
+    > :nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+    border-end-start-radius: var(--ui-radius-child, var(--ui-radius-control)) !important;
+    border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control)) !important;
+  }
+  [data-slot="button-group"][data-orientation="vertical"]
+    > :where([data-slot], .group\/button):not(:nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)) {
+    border-end-start-radius: 0 !important;
+    border-end-end-radius: 0 !important;
+  }
+}

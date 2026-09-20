@@ -1,0 +1,946 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FAMILIES — who shares what
+
+   A component is not styled on its own. It is enrolled in a family, and the
+   family decides everything its members share. Each family declares its
+   membership once, in one place, instead of the same list being spread across
+   separate rules for height, shape and border.
+
+   The eligible-member list of a JOINED group is the exception: corner
+   selection, seams and the compatibility overrides each repeat it, because CSS
+   has no way to name a set of selectors and reuse it. That repetition has
+   already produced one divergence, so treat those four places as a unit when
+   editing them.
+
+   Adding a component to the engine means enrolling its `data-slot` in the right
+   family. A slot that belongs to no family must be declared in
+   `src/design/dispositions.json`, or the coverage gate fails the build.
+
+   ── Reading the selectors ──────────────────────────────────────────────────
+   Membership lists sit inside `:where()`, which contributes zero specificity,
+   so a member carrying a condition cannot inflate the whole family. Filters go
+   in `:where()` too. The only specificity each rule contributes is the trailing
+   `[data-slot]`, which exists to beat the arbitrary classes the components ship
+   with (`h-8`, `rounded-[min(…)]`).
+
+   ── The annotation ─────────────────────────────────────────────────────────
+   Each family opens with `@family <id> subject`. The coverage parser reads
+   those marks: only slots that are the SUBJECT of a rule inside such a block
+   count as governed. A slot named as an ancestor, a condition or an exclusion
+   is not enrolled by that.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family inline-control subject
+   @owns height, padding, font-size, font-weight, gap, border-radius
+
+   INLINE CONTROL
+   Everything that can share a row and must measure exactly the same. If two
+   things in a row look different, one of them is not in here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="button"],
+    .group\/button,
+    [data-slot="select-trigger"],
+    [data-slot="combobox-trigger"],
+    [data-slot="native-select"],
+    [data-slot="input"]:not([data-slot="input-group"] *),
+    [data-slot="input-group"]:not(:has(textarea)),
+    .group\/input-group:not(:has(textarea)),
+    [data-slot="toggle"],
+    .group\/toggle,
+    [data-slot="pagination-link"],
+    [data-slot="questionnaire-input"],
+    [data-slot="combobox-chip-input"]
+  )[data-slot]:where(:not([data-size^="icon"])) {
+  height: var(--ui-control-h);
+  min-height: var(--ui-control-h);
+  padding-inline: var(--ui-control-px);
+  font-size: var(--ui-text-sm);
+  font-weight: var(--ui-weight-control);
+  gap: calc(var(--ui-gap-inline-x) * 0.75);
+  border-radius: var(--ui-radius-control);
+  /* The height is fixed and the flex box centres the content, so the
+     component's own block padding would only eat into the room its text needs
+     — which is how a row can line up perfectly and still clip. */
+  padding-block: 0;
+}
+
+/* Sizes belong to a TIER, and the tier carries the factor. The names and the
+   grouping are declared in `src/design/scale.ts`, which the audit reads too, so
+   a size cannot mean one height here and another there. */
+:where(
+    [data-slot="button"],
+    .group\/button,
+    [data-slot="select-trigger"],
+    [data-slot="toggle"],
+    .group\/toggle,
+    [data-slot="toggle-group"],
+    [data-slot="button-group"],
+    [data-slot="tabs-list"]
+  )[data-slot]:where(
+    [data-size="xs"],
+    [data-size="sm"],
+    [data-size="icon-xs"],
+    [data-size="icon-sm"]
+  ) {
+  --ui-control-h: calc(var(--ui-control-height-x) * var(--ui-scale-compact));
+  --ui-control-px: calc(var(--ui-control-pad-x-x) * 0.8);
+}
+:where(
+    [data-slot="button"],
+    .group\/button,
+    [data-slot="toggle"],
+    .group\/toggle,
+    [data-slot="toggle-group"],
+    [data-slot="button-group"],
+    [data-slot="tabs-list"]
+  )[data-slot]:where([data-size="lg"], [data-size="icon-lg"]) {
+  --ui-control-h: calc(var(--ui-control-height-x) * var(--ui-scale-roomy));
+  --ui-control-px: calc(var(--ui-control-pad-x-x) * 1.2);
+}
+
+/* A multiline field uses the control's shape and padding, but its height comes
+   from its content.
+
+   Its MINIMUM is three lines, not one control height. A field that can only
+   promise the height of a single-line control is not multiline, and the
+   components carry `field-sizing: content`, which sizes the box to what has
+   been TYPED — a placeholder is not typed. So an empty field sat at one line
+   while its placeholder wrapped to two, and the second line was cut off. It
+   showed up on a real phone the moment a brief picked a larger face.
+
+   `lh` ties the floor to the engine's type rather than to a pixel count: three
+   lines of whatever face and size the brief chose. The added `1rem` is the
+   field's own vertical padding, which `min-height` includes under
+   `box-sizing: border-box`. */
+:where([data-slot="textarea"])[data-slot],
+:where([data-slot="input-group"]:has(textarea))[data-slot] {
+  height: auto;
+  min-height: max(var(--ui-control-h), calc(3lh + 1rem));
+  padding-inline: var(--ui-control-px);
+  font-size: var(--ui-text-sm);
+  border-radius: var(--ui-radius-control);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family square-control subject
+   @owns width, height, padding, border-radius
+
+   SQUARE CONTROL
+   Icon buttons: the same height as the row, and the width follows the height.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where([data-slot="button"], .group\/button, [data-slot="toggle"], .group\/toggle)[data-slot]:where(
+    [data-size^="icon"]
+  ) {
+  width: var(--ui-control-h);
+  height: var(--ui-control-h);
+  min-width: var(--ui-control-h);
+  padding: 0;
+  border-radius: var(--ui-radius-control);
+  font-weight: var(--ui-weight-control);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family control-group subject
+   @owns height, padding, border-radius, justify-content
+   @publishes --ui-radius-child
+
+   CONTROL GROUP
+   The group's OUTER height is that of any control in the row; the inner space
+   is what remains after its padding and border, and the members fill it. The
+   other way round (height = control + padding) the group always sticks out.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])[data-slot] {
+  border-radius: var(--ui-radius-control);
+  padding: var(--ui-nest-pad);
+  /* Child radius = outer radius − the container's own border − its real
+     padding. Published here, where those inputs exist: computed at :root it
+     would resolve against a padding of zero and disable every nested radius. */
+  --ui-radius-child: max(
+    0px,
+    calc(var(--ui-radius-control) - var(--ui-nest-border) - var(--ui-nest-pad))
+  );
+}
+
+:where([data-slot="tabs-list"], [data-slot="toggle-group"]) {
+  --ui-nest-pad: calc(var(--ui-space) * 0.75);
+  /* These groups paint a fill, not a frame, so there is no border to discount. */
+  --ui-nest-border: 0px;
+}
+:where([data-slot="button-group"]) {
+  --ui-nest-pad: 0px;
+  --ui-nest-border: 0px;
+}
+
+/* A group that does not fit scrolls along its own axis instead of spilling out
+   of its container. Members keep their size — shrinking them to fit is how a
+   label ends up clipped mid-word — and the group stays inside its box.
+   `scrollbar-width: none` keeps the bar out of a control-height box; the
+   overflow is still reachable by wheel, trackpad and keyboard.
+
+   SAFE centring, and the `safe` is the whole point.
+   ---------------------------------------------------------------------------
+   The members are centred while they fit, which is what a row of four tabs
+   should look like. Once they do not fit, ordinary `center` pushes the overflow
+   out of BOTH ends — and the half that goes out of the start edge cannot be
+   scrolled back to, because there is no negative scroll position. Measured in
+   the design panel: the list began at x=1053 and its first tab at x=1010, so
+   `Presets` sat 43px outside its own container with no way to reach it, and the
+   scrollable range read 47px when the real overflow was 93px.
+
+   `safe` falls back to `start` exactly when that would happen. The row stays
+   centred when it fits, and every member stays reachable when it does not. */
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])[data-slot] {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  justify-content: safe center;
+}
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])[data-slot]::-webkit-scrollbar {
+  display: none;
+}
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])
+  > :where([data-slot], .group\/button)[data-slot] {
+  flex-shrink: 0;
+}
+
+/* Horizontal: fixed outer height. The group owns its members' height. */
+:where([data-slot="toggle-group"], [data-slot="button-group"])[data-slot]:where(
+    [data-orientation="horizontal"],
+    :not([data-orientation])
+  ),
+:where([data-slot="tabs"][data-orientation="horizontal"]) > :where([data-slot="tabs-list"])[data-slot] {
+  height: var(--ui-control-h);
+}
+
+/* Vertical: height from content; each member takes the control height. */
+:where([data-slot="toggle-group"], [data-slot="button-group"])[data-slot]:where(
+    [data-orientation="vertical"]
+  ),
+:where([data-slot="tabs"][data-orientation="vertical"]) > :where([data-slot="tabs-list"])[data-slot] {
+  height: auto;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family inner-control subject
+   @owns height, min-height, width, border-radius
+
+   INNER CONTROL
+   Lives inside a group: it never sets its own height, it fills the parent's.
+   A child that measures itself ends up sticking out of its own box.
+
+   Members are named explicitly. Matching every slotted child would hand control
+   geometry to separators and structural wrappers as well.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])
+  > :where(
+    [data-slot="tabs-trigger"],
+    [data-slot="toggle-group-item"],
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="combobox-trigger"],
+    [data-slot="native-select"],
+    [data-slot="input"],
+    [data-slot="input-group"],
+    [data-slot="toggle"],
+    [data-slot="button-group-text"],
+    .group\/button
+  )[data-slot],
+:where([data-slot="input-group"])
+  :where([data-slot="input-group-control"], [data-slot="input"])[data-slot] {
+  height: 100%;
+  min-height: 0;
+  border-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+
+/* A multiline control inside a group sizes to its content. */
+:where([data-slot="input-group"]:has(textarea))
+  :where([data-slot="input-group-control"])[data-slot] {
+  height: auto;
+}
+
+/* A member of a vertical group cannot fill a height that does not exist, so it
+   takes the per-control height instead.
+
+   Scoped to the owning group on purpose: `data-orientation="vertical"` is also
+   emitted by components that are not control groups — Accordion is one — and an
+   unscoped rule would force the control height onto all of their children. */
+:where([data-slot="toggle-group"], [data-slot="button-group"])[data-orientation="vertical"]
+  > :where(
+    [data-slot="toggle-group-item"],
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="combobox-trigger"],
+    [data-slot="native-select"],
+    [data-slot="input"],
+    [data-slot="input-group"],
+    [data-slot="toggle"],
+    [data-slot="button-group-text"],
+    .group\/button
+  )[data-slot],
+:where([data-slot="tabs"][data-orientation="vertical"])
+  > :where([data-slot="tabs-list"])
+  > :where([data-slot="tabs-trigger"])[data-slot] {
+  height: var(--ui-control-h);
+  flex: 0 0 auto;
+}
+
+/* An embedded square control takes its width from its effective inner height,
+   not from the outer token, so it does not turn rectangular inside a group. */
+:where([data-slot="tabs-list"], [data-slot="toggle-group"], [data-slot="button-group"])
+  > :where([data-slot="button"], [data-slot="toggle"], [data-slot="toggle-group-item"], .group\/button)[data-slot]:where(
+    [data-size^="icon"]
+  ) {
+  width: auto;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding-inline: 0;
+}
+
+/* The field inside a group draws no frame of its own: the shell draws it. */
+:where([data-slot="input-group"])
+  :where([data-slot="input-group-control"], [data-slot="input"])[data-slot] {
+  padding-inline: 0;
+  border-width: 0;
+  border-radius: 0;
+  font-size: var(--ui-text-sm);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family control-shape subject
+   @owns border-radius
+
+   CONTROL-SHAPED PIECE
+   Does not share the height — its size comes from its content — but shares the
+   shape. Belonging here does NOT imply a border: that is the outline contract.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="badge"],
+    .group\/badge,
+    [data-slot="kbd"],
+    [data-slot="checkbox"],
+    [data-slot="combobox-chip"],
+    [data-slot="input-group-button"],
+    [data-slot="input-otp-slot"],
+    [data-slot="menubar"],
+    [data-slot="menubar-trigger"],
+    [data-slot="skeleton"],
+    [data-slot="progress-track"],
+    [data-slot="progress-indicator"],
+    [data-slot="slider-track"],
+    [data-slot="slider-range"],
+    [data-slot="avatar"],
+    [data-slot="avatar-image"],
+    [data-slot="avatar-fallback"],
+    [data-slot="avatar-group-count"],
+    [data-slot="empty-icon"],
+    [data-slot="item-media"],
+    [data-slot="sidebar-menu-badge"],
+    [data-slot="sidebar-menu-skeleton"],
+    [data-slot="alert-dialog-media"],
+    [data-slot="attachment-media"],
+    [data-slot="message-avatar"],
+    [data-slot="marker-icon"],
+    [data-slot="toast-icon"],
+    [data-slot="scroll-area-thumb"],
+    [data-slot="questionnaire-choice-indicator"],
+    [data-slot="input-group-addon"]
+  )[data-slot] {
+  border-radius: var(--ui-radius-control);
+}
+
+/* Registered shape exceptions: pieces that are dots and stay dots in every
+   preset. */
+:where(
+    [data-slot="avatar-badge"],
+    [data-slot="slider-thumb"],
+    [data-slot="switch"],
+    [data-slot="switch-thumb"],
+    [data-slot="radio-group-item"],
+    [data-slot="questionnaire-choice-indicator-dot"]
+  )[data-slot] {
+  border-radius: 9999px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family control-outline subject
+   @owns border-width, border-style
+
+   CONTROL OUTLINE — orthogonal to geometry.
+   Only boxes that actually draw a frame are enrolled. Shape never implies a
+   border: a skeleton, a progress bar and an avatar share the radius of an input
+   and carry no outline. Colour, and the wider `borders` policy, stay untouched
+   — the component keeps them, because that is what carries its states.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="native-select"],
+    [data-slot="combobox-trigger"],
+    [data-slot="input-group"],
+    [data-slot="input-otp-slot"],
+    [data-slot="checkbox"],
+    [data-slot="button-group-text"],
+    [data-slot="menubar"],
+    [data-slot="button"][data-variant="outline"],
+    .group\/button[data-variant="outline"],
+    [data-slot="toggle"][data-variant="outline"],
+    .group\/toggle[data-variant="outline"],
+    [data-slot="toggle-group-item"][data-variant="outline"]
+  )[data-slot] {
+  border-width: var(--ui-border-width);
+  border-style: solid;
+}
+
+/* Variants that paint no frame still reserve the space, so a row of mixed
+   variants stays aligned. Button already ships a transparent border; this only
+   makes its width follow the system. */
+:where([data-slot="button"], .group\/button)[data-slot]:where(
+    [data-variant="default"],
+    [data-variant="secondary"],
+    [data-variant="destructive"],
+    [data-variant="ghost"],
+    [data-variant="link"]
+  ) {
+  border-width: var(--ui-border-width);
+  border-style: solid;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family joined-group subject
+   @owns border-radius, border-width (seams)
+
+   JOINED GROUP — buttons pressed together, code cells, flush toggles.
+   Only the outside corners round; each internal seam is drawn once.
+
+   The engine owns the seams: the outline contract sets `border-width` from an
+   unlayered rule, which beats the `border-l-0` utility the components ship
+   with, so leaving the seams to them would bring every double edge back.
+
+   First and last are chosen with `:nth-child(… of <members>)`, which counts
+   only eligible members. `:first-of-type` counts by HTML tag, so an Input and a
+   Button in one group would both be "first", and a trailing hidden element
+   would steal the last rounded corner.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Horizontal ──────────────────────────────────────────────────────────── */
+
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where(
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="combobox-trigger"],
+    [data-slot="native-select"],
+    [data-slot="input"],
+    [data-slot="input-group"],
+    [data-slot="toggle"],
+    [data-slot="button-group-text"],
+    .group\/button
+  )[data-slot] {
+  border-radius: 0;
+}
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :nth-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+  border-start-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+  border-start-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+/* One seam per boundary: the later member drops its leading edge. Counting
+   members, not any slotted sibling, so a structural child cannot strip the
+   first real member's outside border. */
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where([data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)[data-slot]
+  ~ :where([data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)[data-slot] {
+  border-inline-start-width: 0;
+}
+/* Where a separator already draws the boundary, neither neighbour adds one. */
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where([data-slot="button-group-separator"])
+  + :where([data-slot], .group\/button)[data-slot] {
+  border-inline-start-width: 0;
+}
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where([data-slot], .group\/button)[data-slot]:has(
+    + :where([data-slot="button-group-separator"])
+  ) {
+  border-inline-end-width: 0;
+}
+
+/* ── Vertical ────────────────────────────────────────────────────────────── */
+
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :where(
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="combobox-trigger"],
+    [data-slot="native-select"],
+    [data-slot="input"],
+    [data-slot="input-group"],
+    [data-slot="toggle"],
+    [data-slot="button-group-text"],
+    .group\/button
+  )[data-slot] {
+  border-radius: 0;
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :nth-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+  border-start-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-start-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :nth-last-child(1 of [data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button) {
+  border-end-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :where([data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)[data-slot]
+  ~ :where([data-slot="button"], [data-slot="select-trigger"], [data-slot="combobox-trigger"], [data-slot="native-select"], [data-slot="input"], [data-slot="input-group"], [data-slot="toggle"], [data-slot="button-group-text"], .group\/button)[data-slot] {
+  border-block-start-width: 0;
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :where([data-slot="button-group-separator"])
+  + :where([data-slot], .group\/button)[data-slot] {
+  border-block-start-width: 0;
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :where([data-slot], .group\/button)[data-slot]:has(
+    + :where([data-slot="button-group-separator"])
+  ) {
+  border-block-end-width: 0;
+}
+
+/* The separator is a divider, not a member: it takes the system's border
+   thickness, no corner radius, and never the control height. */
+:where([data-slot="button-group"]) > :where([data-slot="button-group-separator"])[data-slot] {
+  background-color: var(--ui-border-color);
+  border-radius: 0;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+:where([data-slot="button-group"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where([data-slot="button-group-separator"])[data-slot] {
+  width: var(--ui-border-width);
+  height: auto;
+}
+:where([data-slot="button-group"][data-orientation="vertical"])
+  > :where([data-slot="button-group-separator"])[data-slot] {
+  height: var(--ui-border-width);
+  width: auto;
+}
+
+/* ── Toggle group with no gap: a joined group too ────────────────────────────
+   `spacing` is numeric upstream, so a flush group reports `data-spacing="0"`. */
+
+:where([data-slot="toggle-group"][data-spacing="0"])
+  > :where([data-slot="toggle-group-item"])[data-slot] {
+  border-radius: 0;
+}
+:where([data-slot="toggle-group"][data-spacing="0"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :nth-child(1 of [data-slot="toggle-group-item"]) {
+  border-start-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="toggle-group"][data-spacing="0"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :nth-last-child(1 of [data-slot="toggle-group-item"]) {
+  border-start-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="toggle-group"][data-spacing="0"]):where([data-orientation="horizontal"], :not([data-orientation]))
+  > :where([data-slot="toggle-group-item"])[data-slot]
+  ~ :where([data-slot="toggle-group-item"])[data-slot] {
+  border-inline-start-width: 0;
+}
+:where([data-slot="toggle-group"][data-spacing="0"][data-orientation="vertical"])
+  > :nth-child(1 of [data-slot="toggle-group-item"]) {
+  border-start-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-start-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="toggle-group"][data-spacing="0"][data-orientation="vertical"])
+  > :nth-last-child(1 of [data-slot="toggle-group-item"]) {
+  border-end-start-radius: var(--ui-radius-child, var(--ui-radius-control));
+  border-end-end-radius: var(--ui-radius-child, var(--ui-radius-control));
+}
+:where([data-slot="toggle-group"][data-spacing="0"][data-orientation="vertical"])
+  > :where([data-slot="toggle-group-item"])[data-slot]
+  ~ :where([data-slot="toggle-group-item"])[data-slot] {
+  border-block-start-width: 0;
+}
+
+/* ── One-time code: the cells are a joined group as well ─────────────────── */
+
+:where([data-slot="input-otp-group"])
+  > :where([data-slot="input-otp-slot"])[data-slot] {
+  border-radius: 0;
+}
+:where([data-slot="input-otp-group"]) > :nth-child(1 of [data-slot="input-otp-slot"]) {
+  border-start-start-radius: var(--ui-radius-control);
+  border-end-start-radius: var(--ui-radius-control);
+}
+:where([data-slot="input-otp-group"]) > :nth-last-child(1 of [data-slot="input-otp-slot"]) {
+  border-start-end-radius: var(--ui-radius-control);
+  border-end-end-radius: var(--ui-radius-control);
+}
+:where([data-slot="input-otp-group"])
+  > :where([data-slot="input-otp-slot"])[data-slot]
+  ~ :where([data-slot="input-otp-slot"])[data-slot] {
+  border-inline-start-width: 0;
+}
+/* The wrapper keeps the outer shape: it paints an invalid-state ring, so its
+   radius has to agree with the cells that draw the frame. */
+:where([data-slot="input-otp-group"])[data-slot] {
+  border-radius: var(--ui-radius-control);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family surface subject
+   @owns border-radius, border, background-color, box-shadow
+
+   SURFACE
+   Content boxes resting on the page.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="card"],
+    [data-slot="table-container"],
+    [data-slot="alert"],
+    [data-slot="empty"],
+    [data-slot="item"],
+    [data-slot="calendar"],
+    [data-slot="attachment"],
+    [data-slot="bubble-content"],
+    [data-slot="message-content"],
+    [data-slot="questionnaire"],
+    [data-slot="questionnaire-choice"],
+    [data-slot="questionnaire-item"],
+    [data-slot="toast-content"],
+    [data-slot="sidebar-input"]
+  )[data-slot],
+.ui-surface {
+  border-radius: var(--ui-radius-surface);
+  border-width: var(--ui-border-width);
+  border-style: solid;
+  border-color: var(--ui-border-visible);
+  background-color: var(--ui-surface-bg);
+  box-shadow: var(--ui-shadow-surface);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family overlay subject
+   @owns border-radius, border, box-shadow, padding
+   @publishes --ui-radius-child
+
+   FLOATING LAYER
+   Lifts above the page, so it keeps a defined border even when the system is
+   set to no borders: it has to separate itself from what is behind it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="dialog-content"],
+    [data-slot="alert-dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="drawer-popup"],
+    [data-slot="popover-content"],
+    [data-slot="hover-card-content"],
+    [data-slot="tooltip-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="context-menu-sub-content"],
+    [data-slot="menubar-content"],
+    [data-slot="menubar-sub-content"],
+    [data-slot="navigation-menu-content"],
+    [data-slot="select-content"],
+    [data-slot="combobox-content"],
+    [data-slot="command"],
+    [data-slot="toast"]
+  )[data-slot] {
+  border-radius: var(--ui-radius-surface);
+  border-width: var(--ui-border-width);
+  border-style: solid;
+  border-color: var(--ui-border-color);
+  box-shadow: var(--ui-shadow-overlay);
+}
+
+/* Menu popups publish the radius of their options from their own geometry, and
+   apply the inset in the same rule that declares it — if the padding lived in
+   another list, someone would have to remember to update both. */
+:where(
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="context-menu-sub-content"],
+    [data-slot="menubar-content"],
+    [data-slot="menubar-sub-content"],
+    [data-slot="select-content"],
+    [data-slot="combobox-content"],
+    [data-slot="command"]
+  ) {
+  --ui-nest-pad: calc(var(--ui-space) * 1.2);
+  padding: var(--ui-nest-pad);
+  --ui-radius-child: max(
+    0px,
+    calc(var(--ui-radius-surface) - var(--ui-border-width) - var(--ui-nest-pad))
+  );
+}
+
+/* An embedded Command is not a second floating layer. Its own inputs change,
+   so what it publishes for its options changes with them — the publisher and
+   the real box can never diverge. */
+:where([data-slot="command"]) {
+  --ui-command-border: var(--ui-border-width);
+  --ui-command-radius: var(--ui-radius-surface);
+}
+:where([data-slot="dialog-content"]) :where([data-slot="command"])[data-slot] {
+  --ui-command-border: 0px;
+  --ui-command-radius: 0px;
+  border-width: var(--ui-command-border);
+  box-shadow: none;
+  border-radius: var(--ui-command-radius);
+  --ui-radius-child: max(
+    0px,
+    calc(var(--ui-command-radius) - var(--ui-command-border) - var(--ui-nest-pad))
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family menu-option subject
+   @owns border-radius, min-height, gap, font-size, white-space
+
+   MENU OPTION
+   Inherits the radius its popup publishes, and reads on one line.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="dropdown-menu-item"],
+    [data-slot="dropdown-menu-checkbox-item"],
+    [data-slot="dropdown-menu-radio-item"],
+    [data-slot="dropdown-menu-sub-trigger"],
+    [data-slot="context-menu-item"],
+    [data-slot="context-menu-checkbox-item"],
+    [data-slot="context-menu-radio-item"],
+    [data-slot="context-menu-sub-trigger"],
+    [data-slot="menubar-item"],
+    [data-slot="menubar-checkbox-item"],
+    [data-slot="menubar-radio-item"],
+    [data-slot="menubar-sub-trigger"],
+    [data-slot="command-item"],
+    [data-slot="select-item"],
+    [data-slot="combobox-item"]
+  )[data-slot] {
+  border-radius: var(--ui-radius-child, var(--ui-radius-control));
+  min-height: calc(var(--ui-control-h) * 0.8);
+  gap: var(--ui-gap-inline-x);
+  font-size: var(--ui-text-sm);
+  white-space: nowrap;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family menu-wrapper subject
+   @owns padding
+
+   Inner wrappers add no second step of inset. If they did, the radius the popup
+   publishes would stop matching the real gap its options sit in.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="dropdown-menu-group"],
+    [data-slot="context-menu-group"],
+    [data-slot="menubar-group"],
+    [data-slot="select-group"],
+    [data-slot="combobox-group"],
+    [data-slot="command-group"],
+    [data-slot="command-list"],
+    [data-slot="combobox-list"]
+  )[data-slot] {
+  padding: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family nav-link subject
+   @owns border-radius
+
+   NAVIGATION LINK
+   Does not live in a box with padding of its own: it follows the control
+   radius, slightly softened.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="sidebar-menu-button"],
+    .group\/menu-button,
+    [data-slot="sidebar-menu-sub-button"],
+    [data-slot="sidebar-menu-action"],
+    [data-slot="sidebar-group-action"],
+    [data-slot="navigation-menu-link"],
+    [data-slot="navigation-menu-trigger"],
+    [data-slot="accordion-trigger"],
+    [data-slot="breadcrumb-link"],
+    [data-slot="breadcrumb-page"],
+    [data-slot="breadcrumb-ellipsis"],
+    [data-slot="pagination-ellipsis"],
+    [data-slot="sidebar-rail"]
+  )[data-slot] {
+  border-radius: calc(var(--ui-radius-control) * 0.8);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family title subject
+   @owns font-family, font-size, font-weight, letter-spacing, line-height
+
+   TYPE HIERARCHY
+   A new title joins the list and takes the system's size, weight, tracking and
+   leading. `--ui-title-size` allows semantic variation inside the contract: a
+   headline metric is still a system title, one step up the scale.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="card-title"],
+    [data-slot="dialog-title"],
+    [data-slot="alert-dialog-title"],
+    [data-slot="sheet-title"],
+    [data-slot="drawer-title"],
+    [data-slot="popover-title"],
+    [data-slot="alert-title"],
+    [data-slot="empty-title"],
+    [data-slot="item-title"],
+    [data-slot="attachment-title"],
+    [data-slot="questionnaire-title"],
+    [data-slot="toast-title"],
+    [data-slot="marker-content"]
+  )[data-slot],
+.ui-title {
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-title-size, var(--ui-text-md));
+  font-weight: var(--ui-weight-title);
+  letter-spacing: var(--ui-tracking-title);
+  line-height: 1.3;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family description subject
+   @owns font-size, line-height, color
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="card-description"],
+    [data-slot="dialog-description"],
+    [data-slot="alert-dialog-description"],
+    [data-slot="sheet-description"],
+    [data-slot="drawer-description"],
+    [data-slot="popover-description"],
+    [data-slot="empty-description"],
+    [data-slot="field-description"],
+    [data-slot="item-description"],
+    [data-slot="attachment-description"],
+    [data-slot="questionnaire-description"],
+    [data-slot="toast-description"],
+    [data-slot="progress-value"]
+  )[data-slot],
+.ui-muted {
+  font-size: var(--ui-text-xs);
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family label subject
+   @owns text-transform, letter-spacing, font-weight, font-size
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="label"],
+    [data-slot="field-label"],
+    [data-slot="field-legend"],
+    [data-slot="table-head"],
+    [data-slot="dropdown-menu-label"],
+    [data-slot="context-menu-label"],
+    [data-slot="menubar-label"],
+    [data-slot="select-label"],
+    [data-slot="combobox-label"],
+    [data-slot="sidebar-group-label"],
+    [data-slot="progress-label"]
+  )[data-slot],
+[data-slot="command-group"] [cmdk-group-heading],
+.ui-label {
+  text-transform: var(--ui-label-case);
+  letter-spacing: var(--ui-label-tracking);
+  font-weight: var(--ui-weight-label);
+  font-size: var(--ui-text-xs);
+}
+
+/* A menu heading is a label, not an option: it takes label typography and only
+   the menu's spacing. */
+:where([data-slot="dropdown-menu-label"], [data-slot="context-menu-label"], [data-slot="menubar-label"])[data-slot] {
+  white-space: nowrap;
+  gap: var(--ui-gap-inline-x);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family rule subject
+   @owns height, background-color, margin-inline
+
+   RULE
+   A divider. Two components draw the same idea under two slots, and until
+   there was a central divider policy both were parked as unresolved with the
+   same note. There is one now, so they are one family and `ruleStyle` reaches
+   both.
+
+   The margin is owned here because `sidebar-separator` ships with `mx-2` of
+   its own, which stacks on whatever padding its container already has: in the
+   sidebar footer that put the rule eight pixels right of everything beside it
+   and overhanging the column on the other side. How far a rule is inset is the
+   container's business, not the rule's.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="separator"],
+    [data-slot="sidebar-separator"]
+  )[data-slot] {
+  margin-inline: 0;
+  background-color: var(--ui-edge);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   @family leading-icon subject
+   @owns order
+
+   LEADING ICON
+   The icon that accompanies a label. Its side is decided once, for all of them.
+
+   `.group/menu-button` is in the list because a collapsible nav item renders
+   through Base UI's `render` prop, which replaces `data-slot` with its own —
+   so "Rutas" was the one nav item this family never reached, and it kept its
+   icon while its siblings moved theirs. Third time this has caught us, after
+   `.group/button` and `.group/badge`.
+   Only the leading icon obeys `iconSide`: a disclosure chevron, a selection
+   check or a shortcut are not leading icons and stay where they are.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:where(
+    [data-slot="button"],
+    .group\/button,
+    [data-slot="badge"],
+    .group\/badge,
+    [data-slot="tabs-trigger"],
+    [data-slot="sidebar-menu-button"],
+    .group\/menu-button,
+    [data-slot="dropdown-menu-item"],
+    [data-slot="context-menu-item"],
+    [data-slot="menubar-item"],
+    [data-slot="command-item"]
+  )
+  > svg:first-child:not([data-ui-role]) {
+  order: var(--ui-icon-order);
+}
