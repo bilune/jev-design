@@ -33,18 +33,25 @@ cannot tell the difference: `src/design/jev/client.ts` renames three fields
 between the two SDKs and derives a fourth, and that is the whole adapter.
 
 Either way the endpoint is metered, because either way a request spends real
-money against somebody's key: eight generations per address per ten minutes,
-refused with a 429.
+money against somebody's key. Two Vercel WAF rules on `POST
+/api/design/generate` do the metering at the edge, before the function is
+invoked: three generations per visitor per ten minutes, and sixty across
+everyone in the same window. The second is the cost cap, worth about USD 0.25
+an hour at the ceiling.
 
-That ceiling is enforced twice, in two different places, and the deployment
-needs both. A Vercel WAF rate limit rule on `POST /api/design/generate` is the
-one that holds, because the edge counts before the function is invoked. A
-counter inside the route covers every host that has no such rule, local
-development included. The rule is configuration rather than code, so it is not
-in this repo; `src/app/api/design/generate/rate-limit.ts` states it, along
-with the measurement that showed why the in-process counter cannot do the job
-alone (nine sequential requests from one address were served by nine separate
-instances, each with an empty map).
+Ten minutes is the longest window the plan allows, which is why the cap reads
+per ten minutes rather than per hour, and the counters are regional, so the
+worst case multiplies by the regions serving traffic. A dollar-denominated cap
+with a longer period exists on the gateway route instead: an AI Gateway budget
+refreshes daily, weekly or monthly and answers 402 when it is spent.
+
+Those rules are configuration, not code, so a clone of this repo does not
+inherit them. What it does inherit is a counter inside the route, which covers
+local development and any host with no WAF in front of it.
+`src/app/api/design/generate/rate-limit.ts` states both, along with the
+measurement that showed the in-process counter cannot do the job alone: nine
+sequential requests from one address were served by nine separate instances,
+each with an empty map.
 
 ## The two halves
 

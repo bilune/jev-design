@@ -14,24 +14,32 @@
  * empty map, so the ninth passed as easily as the first. Fluid Compute reuses
  * an instance for CONCURRENT requests; it does not pin a caller to one.
  *
- * The ceiling that holds is a Vercel WAF rule on this path, which answers 429
- * at the edge and never invokes the function at all. It is configuration
- * rather than code, so it lives outside this repo:
+ * The ceiling that holds is a pair of Vercel WAF rules on this path, which
+ * answer 429 at the edge and never invoke the function at all. They are
+ * configuration rather than code, so they live outside this repo:
  *
  *   path = /api/design/generate AND method = POST
- *   → rate limit, fixed window, 8 per 600s, keyed by IP, answer 429
+ *   → 3 per 600s keyed by IP        one visitor
+ *   → 60 per 600s keyed by nothing  everyone together
  *
- * Measured against the deployment: three requests through, then 429, with the
- * function never reached. This file is what is left when that rule is not
- * there, which is every local run and any other host. Keeping both also means
- * the demo still has a limit if someone deletes the rule and nobody notices.
+ * The second one is the cost cap, and it is the reason a key list can be
+ * empty: with no key there is one bucket for all matching traffic. Measured
+ * on the deployment, with the per-IP rule paused: three requests through,
+ * then 429. Ten minutes is the longest window the plan allows, so the cap is
+ * expressed per ten minutes rather than per hour. At the ceiling that is 360
+ * generations an hour, about USD 0.25, and the WAF counts per region, so the
+ * true worst case is that times the number of regions serving traffic.
+ *
+ * This file is what is left when those rules are not there, which is every
+ * local run and any other host. Keeping both also means the demo still has a
+ * limit if someone deletes a rule and nobody notices.
  */
 
 /** Per address: how many generations, over how long a window. */
-const PER_IP = Number(process.env.RATE_LIMIT_PER_IP ?? 8)
+const PER_IP = Number(process.env.RATE_LIMIT_PER_IP ?? 3)
 const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000)
 /** Across everyone, over the same window. A ceiling on the whole bill. */
-const GLOBAL = Number(process.env.RATE_LIMIT_GLOBAL ?? 240)
+const GLOBAL = Number(process.env.RATE_LIMIT_GLOBAL ?? 60)
 
 /** Timestamps of recent calls, newest last, keyed by address. */
 const hits = new Map<string, number[]>()
