@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
 
 import "./globals.css"
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <TooltipProvider>
               {children}
               <Toaster />
+              <Analytics />
             </TooltipProvider>
           </IconFamilyProvider>
         </DesignProvider>
