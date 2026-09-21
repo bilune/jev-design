@@ -9,10 +9,11 @@ second or two later, the console in front of you is one: aged paper, ink at
 zero chroma, small caps labels, hatched chart fills, square corners, and no
 icon set at all, because a printed book does not have any.
 
-<video src="https://github.com/bilune/jev-design/raw/main/docs/demo.mp4" poster="docs/demo-poster.png" controls muted playsinline width="720"></video>
+https://github.com/user-attachments/assets/f22aefa5-4336-4fd1-87b8-078d04ccce19
 
-[Six briefs, recorded in real time](https://github.com/bilune/jev-design/raw/main/docs/demo.mp4)
-(83s). Nothing in it is sped up or cut: the pauses are the engine answering.
+Six briefs, 83 seconds, recorded in real time. Nothing in it is sped up or
+cut, so the pauses are the engine answering. The file is also in the repo at
+[docs/demo.mp4](./docs/demo.mp4).
 
 ```bash
 npm install
