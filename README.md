@@ -25,6 +25,19 @@ The console runs without a key; the brief field is the part that needs one.
 `POST /api/design/generate` answers 503 until `TYPESAFE_API_KEY` is set, and
 the key stays on the server.
 
+Two routes reach the model. By default the TypeSafe SDK calls
+`api.typesafe.ai` with that key. Setting `JEV_ROUTE=gateway` sends the same
+questions through Vercel's AI Gateway instead, on `AI_GATEWAY_API_KEY`, which
+moves the billing and the observability to the Vercel account. The engine
+cannot tell the difference: `src/design/jev/client.ts` renames three fields
+between the two SDKs and derives a fourth, and that is the whole adapter.
+
+Either way the endpoint is metered, because either way a request spends real
+money against somebody's key. Eight generations per address and 240 in total
+per ten minutes, configurable, refused with a 429 and a `retry-after`. The
+counters are per instance and the limits of that are written down in
+`src/app/api/design/generate/rate-limit.ts`.
+
 ## The two halves
 
 Asking the question properly takes two pieces, and most of the work is in the

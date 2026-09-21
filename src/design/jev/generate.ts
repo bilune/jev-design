@@ -12,9 +12,10 @@
  *  Stage 3 is not a request at all: it is `assemble`, where every number,
  *  contrast ratio and coupling is resolved in code.
  */
-import { TypeSafeClient, choice, score, noul, type ChoiceCriteria } from "@typesafe-ai/sdk"
+import { choice, score, noul, type ChoiceCriteria } from "@typesafe-ai/sdk"
 
 import type { DesignConfig, DesignFlags } from "@/design/tokens"
+import { jevClient, type JevClient } from "./client"
 import { recognise, recognitionContext, type Recognition } from "./recognise"
 import {
   canvases, canCarryBody, chromaLadder, DEPTH_RECIPES, easingCurves, faces, facesByCategory, hues, HUE_CEILING, HUE_LIMITS,
@@ -1385,7 +1386,7 @@ export type GenerateResult = {
 export async function generateDesign(
   brief: string,
   opts: {
-    client?: TypeSafeClient
+    client?: JevClient
     critique?: boolean
     /** Skip stage zero entirely. Also makes a coloured ground unreachable. */
     recognise?: boolean
@@ -1401,7 +1402,7 @@ export async function generateDesign(
     enrich?: boolean
   } = {}
 ): Promise<GenerateResult> {
-  const client = opts.client ?? new TypeSafeClient({ timeout: 30000 })
+  const client = opts.client ?? jevClient()
   const t0 = Date.now()
   let inputTokens = 0
   let calls = 0
@@ -1521,14 +1522,15 @@ export async function generateDesign(
   let critique: { coherent: number; matchesBrief: number } | undefined
   if (opts.critique) {
     const c = await client.systemOne({
-      state: { style_brief: brief, tokens: config as unknown as Record<string, never> },
-      questions: critiqueQuestions,
+      state: { style_brief: brief, tokens: config } as never,
+      questions: critiqueQuestions as never,
     })
     calls++
     inputTokens += c.usage.input_tokens
+    const judged = c.answers as Record<string, { noul: number }>
     critique = {
-      coherent: Number(c.answers.coherent.noul.toFixed(3)),
-      matchesBrief: Number(c.answers.matchesBrief.noul.toFixed(3)),
+      coherent: Number(judged.coherent.noul.toFixed(3)),
+      matchesBrief: Number(judged.matchesBrief.noul.toFixed(3)),
     }
   }
   if (critique) result.critique = critique

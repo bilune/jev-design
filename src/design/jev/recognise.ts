@@ -20,7 +20,9 @@
  *  - It is one request. All of its questions are independent, so they travel
  *    together, and the whole pass costs about 400ms.
  */
-import { choice, noul, score, TypeSafeClient } from "@typesafe-ai/sdk"
+import { choice, noul, score } from "@typesafe-ai/sdk"
+
+import type { JevClient } from "./client"
 
 import { hues, type HueKey } from "./catalog"
 
@@ -233,7 +235,7 @@ const CHARACTER_SURE = 0.45
 const ASSERT = 0.7
 
 export async function recognise(
-  client: TypeSafeClient,
+  client: JevClient,
   brief: string
 ): Promise<{ result: Recognition; inputTokens: number }> {
   // The state is the brief and nothing else, and that is a measured choice.
@@ -257,8 +259,16 @@ export async function recognise(
   // A framing that urges a reading costs you the model's honest answer about
   // whether it has one. The common-noun problem is real, but the interface
   // solves it more cheaply by noticing the brief is three words long.
-  const res = await client.systemOne({ state: { brief }, questions: recognition })
-  const a = res.answers
+  const res = await client.systemOne({
+    state: { brief } as never,
+    questions: recognition as never,
+  })
+  /* The transport types its answers loosely, because two SDKs describe them
+     differently. The shapes the questions above ask for are known here. */
+  const a = res.answers as Record<
+    string,
+    { noul: number; choice: string; confidence: number; score: number }
+  >
   const result: Recognition = {
     namesAProduct: a.namesAProduct.noul,
     appearanceKnown: a.appearanceKnown.noul,
