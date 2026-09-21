@@ -33,12 +33,18 @@ cannot tell the difference: `src/design/jev/client.ts` renames three fields
 between the two SDKs and derives a fourth, and that is the whole adapter.
 
 Either way the endpoint is metered, because either way a request spends real
-money against somebody's key. Eight generations per address per ten minutes,
-refused with a 429. The ceiling that holds is a Vercel WAF rule, consulted
-through `@vercel/firewall`; a second counter in the route's own memory covers
-local development, where there is no WAF to ask. Why it is in that order, and
-the measurement that showed the in-process counter alone was not enough, are
-in `src/app/api/design/generate/rate-limit.ts`.
+money against somebody's key: eight generations per address per ten minutes,
+refused with a 429.
+
+That ceiling is enforced twice, in two different places, and the deployment
+needs both. A Vercel WAF rate limit rule on `POST /api/design/generate` is the
+one that holds, because the edge counts before the function is invoked. A
+counter inside the route covers every host that has no such rule, local
+development included. The rule is configuration rather than code, so it is not
+in this repo; `src/app/api/design/generate/rate-limit.ts` states it, along
+with the measurement that showed why the in-process counter cannot do the job
+alone (nine sequential requests from one address were served by nine separate
+instances, each with an empty map).
 
 ## The two halves
 

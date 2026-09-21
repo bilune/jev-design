@@ -1,4 +1,3 @@
-import { checkRateLimit } from "@vercel/firewall"
 import { NextResponse } from "next/server"
 
 import { generateDesign } from "@/design/jev/generate"
@@ -42,19 +41,12 @@ export async function POST(request: Request) {
      too-short brief does not spend somebody's allowance. What the limit
      protects is the model spend, and nothing above this line reaches it.
 
-     Two counters, deliberately. The WAF's is the one that holds: it is kept
-     regionally, so it survives a caller being spread across instances, which
-     is exactly how the in-process counter was measured to fail. The in-process
-     one stays because `checkRateLimit` has nothing to consult outside Vercel,
-     which would otherwise leave `npm run dev` with no limit at all. */
-  const { rateLimited } = await checkRateLimit("design-generate", { request })
-  if (rateLimited) {
-    return NextResponse.json(
-      { error: "That is a lot of styles in a short time. Try again shortly." },
-      { status: 429, headers: { "retry-after": "60" } }
-    )
-  }
-
+     In production this is the SECOND line. The first is a Vercel WAF rule on
+     this path, which answers 429 at the edge before the function is even
+     invoked, and whose counters are the platform's rather than this process's.
+     The rule is configuration, not code, so it is described in the README and
+     cannot be enforced from here: if it is ever removed, what is left is the
+     counter below. */
   const verdict = take(callerAddress(request))
   if (!verdict.ok) {
     return NextResponse.json(

@@ -21,7 +21,6 @@
     "@phosphor-icons/react": "^2.1.10",
     "@shadcn/react": "^0.3.1",
     "@typesafe-ai/sdk": "^0.6.0",
-    "@vercel/firewall": "^1.2.5",
     "ai": "^7.0.107",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",

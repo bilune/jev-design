@@ -14,11 +14,17 @@
  * empty map, so the ninth passed as easily as the first. Fluid Compute reuses
  * an instance for CONCURRENT requests; it does not pin a caller to one.
  *
- * The real ceiling is the Vercel WAF rule the route consults before this one
- * (`@vercel/firewall`, rate limit id `design-generate`), whose counters are
- * regional rather than per instance. This stays as the local fallback,
- * because `checkRateLimit` has no counters to consult off Vercel, and as a
- * second line if the rule is ever removed.
+ * The ceiling that holds is a Vercel WAF rule on this path, which answers 429
+ * at the edge and never invokes the function at all. It is configuration
+ * rather than code, so it lives outside this repo:
+ *
+ *   path = /api/design/generate AND method = POST
+ *   → rate limit, fixed window, 8 per 600s, keyed by IP, answer 429
+ *
+ * Measured against the deployment: three requests through, then 429, with the
+ * function never reached. This file is what is left when that rule is not
+ * there, which is every local run and any other host. Keeping both also means
+ * the demo still has a limit if someone deletes the rule and nobody notices.
  */
 
 /** Per address: how many generations, over how long a window. */
