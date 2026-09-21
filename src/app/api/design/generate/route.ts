@@ -1,3 +1,4 @@
+import { checkRateLimit } from "@vercel/firewall"
 import { NextResponse } from "next/server"
 
 import { generateDesign } from "@/design/jev/generate"
@@ -39,7 +40,21 @@ export async function POST(request: Request) {
 
   /* Counted here rather than at the top of the handler, so a malformed or
      too-short brief does not spend somebody's allowance. What the limit
-     protects is the model spend, and nothing above this line reaches it. */
+     protects is the model spend, and nothing above this line reaches it.
+
+     Two counters, deliberately. The WAF's is the one that holds: it is kept
+     regionally, so it survives a caller being spread across instances, which
+     is exactly how the in-process counter was measured to fail. The in-process
+     one stays because `checkRateLimit` has nothing to consult outside Vercel,
+     which would otherwise leave `npm run dev` with no limit at all. */
+  const { rateLimited } = await checkRateLimit("design-generate", { request })
+  if (rateLimited) {
+    return NextResponse.json(
+      { error: "That is a lot of styles in a short time. Try again shortly." },
+      { status: 429, headers: { "retry-after": "60" } }
+    )
+  }
+
   const verdict = take(callerAddress(request))
   if (!verdict.ok) {
     return NextResponse.json(

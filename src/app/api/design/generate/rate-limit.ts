@@ -7,19 +7,18 @@
  * meant to be tried, which rules out a login, and the cheapest thing that
  * still bounds the bill is a window per caller plus a ceiling for everyone.
  *
- * ── What this is worth, precisely ─────────────────────────────────────────
- * The counters live in the instance's memory. On Vercel's Fluid Compute one
- * instance serves many concurrent requests and is reused between them, so in
- * practice a burst from one address lands on one instance and is caught. It is
- * NOT a guarantee: traffic spread across regions, or a cold start, gets a
- * fresh set of counters, and an attacker rotating addresses is not stopped by
- * a per-address rule at all. That is what the global ceiling is for, and it
- * has the same caveat.
+ * ── What this is worth, and what it is not ────────────────────────────────
+ * This counter lives in one instance's memory, and that is nearly worthless
+ * in production. Measured on the deployment: nine sequential requests from
+ * one address were served by nine different instances, each with its own
+ * empty map, so the ninth passed as easily as the first. Fluid Compute reuses
+ * an instance for CONCURRENT requests; it does not pin a caller to one.
  *
- * So: this turns "someone can drain the account overnight" into "someone can
- * spend a bounded amount per instance". A hard limit needs shared state, which
- * means a store, which is a dependency this demo does not otherwise have. If
- * this ever stops being a demo, that is the upgrade.
+ * The real ceiling is the Vercel WAF rule the route consults before this one
+ * (`@vercel/firewall`, rate limit id `design-generate`), whose counters are
+ * regional rather than per instance. This stays as the local fallback,
+ * because `checkRateLimit` has no counters to consult off Vercel, and as a
+ * second line if the rule is ever removed.
  */
 
 /** Per address: how many generations, over how long a window. */

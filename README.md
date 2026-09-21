@@ -33,10 +33,12 @@ cannot tell the difference: `src/design/jev/client.ts` renames three fields
 between the two SDKs and derives a fourth, and that is the whole adapter.
 
 Either way the endpoint is metered, because either way a request spends real
-money against somebody's key. Eight generations per address and 240 in total
-per ten minutes, configurable, refused with a 429 and a `retry-after`. The
-counters are per instance and the limits of that are written down in
-`src/app/api/design/generate/rate-limit.ts`.
+money against somebody's key. Eight generations per address per ten minutes,
+refused with a 429. The ceiling that holds is a Vercel WAF rule, consulted
+through `@vercel/firewall`; a second counter in the route's own memory covers
+local development, where there is no WAF to ask. Why it is in that order, and
+the measurement that showed the in-process counter alone was not enough, are
+in `src/app/api/design/generate/rate-limit.ts`.
 
 ## The two halves
 
