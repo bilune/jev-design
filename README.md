@@ -1,13 +1,18 @@
 # Can a model design a dashboard?
 
-Not pick a colour, not fill in a theme: make the visual decisions of a whole
-interface from one sentence, and have them hold together across every component
-on the screen.
+Designing one means making the visual decisions of a whole interface from a
+single sentence, and having them hold together across every component on the
+screen. That is a larger job than picking a colour or filling in a theme.
 
 This repo is the experiment. You type "an 18th century printed book" and, a
 second or two later, the console in front of you is one: aged paper, ink at
 zero chroma, small caps labels, hatched chart fills, square corners, and no
 icon set at all, because a printed book does not have any.
+
+<video src="https://github.com/bilune/jev-design/raw/main/docs/demo.mp4" poster="docs/demo-poster.png" controls muted playsinline width="720"></video>
+
+[Six briefs, recorded in real time](https://github.com/bilune/jev-design/raw/main/docs/demo.mp4)
+(83s). Nothing in it is sped up or cut: the pauses are the engine answering.
 
 ```bash
 npm install
@@ -22,29 +27,30 @@ the key stays on the server.
 ## The two halves
 
 Asking the question properly takes two pieces, and most of the work is in the
-first one:
+first one.
 
-**A surface where every visual decision is reachable.** The product is a
-logistics operations console, built with Next.js, Tailwind v4 and shadcn/ui,
+The first is a surface where every visual decision is reachable. The product is
+a logistics operations console built with Next.js, Tailwind v4 and shadcn/ui,
 because the test rig had to be some product and a busy one uses nearly the
-whole component catalog. Its job is to leave no visual decision out of reach: a
-`rounded-lg` a component keeps for itself is a decision the model never gets to
-make. That is the **centrally governed design engine** below, and it is the
-bulk of this README.
+whole component catalog. Its job is to leave no visual decision out of reach. A
+`rounded-lg` that a component keeps for itself is a decision the model never
+gets to make. That surface is the centrally governed design engine described
+below, and it is the bulk of this README.
 
-**An engine that turns a sentence into those decisions.** It runs on Jev, a
-model that answers typed questions instead of writing text, so it cannot invent
-a value: it picks from a catalog a person authored. See *Generating a style
-from a sentence* at the end, and
+The second is an engine that turns a sentence into those decisions. It runs on
+Jev, a model that answers typed questions instead of writing text, so it cannot
+invent a value: it picks from a catalog a person authored. See *Generating a
+style from a sentence* at the end, and
 [scripts/jev/README.md](./scripts/jev/README.md) for how the questions are
 written and what each one was measured against.
 
-The result being judged is not "the dashboard looks good". It is whether the
-style the model picked is recognisably the brief, and whether it survives
-contact with the whole catalog rather than falling apart three components in.
+What gets judged is whether the style the model picked is recognisably the
+brief, and whether it survives contact with the whole catalog instead of
+falling apart three components in. Whether the dashboard looks good is a
+different question, and an easier one.
 
-For the principles behind the engine — what to weigh when setting these values,
-independent of any visual style — see
+The principles behind the engine, meaning what to weigh when setting these
+values independently of any visual style, are in
 [DESIGNING-WITH-TOKENS.md](./DESIGNING-WITH-TOKENS.md).
 
 ## The idea
@@ -66,7 +72,7 @@ from there and rewrites them:
 ```
 src/design/
 ├── tokens.ts             the values: shape, rhythm, typography, colour, structure
-├── families.css          WHO SHARES WHAT — each family declares its members
+├── families.css          WHO SHARES WHAT: each family declares its members
 ├── system.css            token values, flags, per-component adjustments, helpers
 ├── compat.css            the few upstream !important utilities we must defeat
 ├── design-provider.tsx   writes the tokens onto <html>
@@ -75,11 +81,11 @@ src/design/
 └── consistency-audit.ts  the runtime guardrail
 ```
 
-- **Scalars** become custom properties: `--ui-radius-control`, `--ui-gap-section`,
-  `--ui-control-height`, `--ui-border-width`, `--ui-edge`…
-- **Flags** become data-attributes on `<html>`: `data-ui-icon-side`,
-  `data-ui-actions-align`, `data-ui-label-placement`, `data-ui-density`,
-  `data-ui-nav-side`…
+Scalars become custom properties: `--ui-radius-control`, `--ui-gap-section`,
+`--ui-control-height`, `--ui-border-width`, `--ui-edge` and the rest. Flags
+become data-attributes on `<html>`: `data-ui-icon-side`,
+`data-ui-actions-align`, `data-ui-label-placement`, `data-ui-density`,
+`data-ui-nav-side` and so on.
 
 Family rules sit outside `@layer` so they win against the utilities the
 components ship with. Layout helpers sit inside `@layer components` so a one-off
@@ -87,12 +93,12 @@ Tailwind utility can still adjust a single case.
 
 ## Families: what links what
 
-A component is not styled on its own. It is enrolled in a **family**, and the
+A component is not styled on its own. It is enrolled in a family, and the
 family decides everything its members share. Each family declares its
 membership in one place, instead of the same list being spread across separate
 rules for height, shape and border.
 
-The one exception is the eligible-member list of a joined group: corner
+The one exception is the eligible-member list of a joined group. Corner
 selection, seams and the compatibility overrides each repeat it, because CSS has
 no way to name a set of selectors and reuse it. That repetition has already
 produced one divergence, so those four places are edited as a unit.
@@ -104,7 +110,7 @@ produced one divergence, so those four places are edited as a unit.
 | `control-group` | Tabs lists, toggle and button groups: outer height equals one control |
 | `inner-control` | Lives inside a group: never sets its own height, fills the parent |
 | `control-shape` | Shares the shape but not the height (badge, checkbox, avatar…) |
-| `control-outline` | Which boxes actually draw a border — orthogonal to shape |
+| `control-outline` | Which boxes actually draw a border, orthogonal to shape |
 | `joined-group` | Outside corners only; internal seams stay square |
 | `surface` | Content boxes resting on the page |
 | `overlay` | Floating layers |
@@ -123,12 +129,13 @@ surface; it changes the variable those surfaces already consume.
 ## Containment: what happens when it does not fit
 
 The engine scales type and space from the tokens, and a token knows nothing
-about the box it lands in. Push the controls far enough — large text, generous
-density — and a padding that is comfortable on a wide surface eats a narrow
-one, a figure splits across two lines, a month grid loses Monday and Sunday.
+about the box it lands in. Push the controls far enough, with large text and a
+generous density, and a padding that is comfortable on a wide surface eats a
+narrow one, a figure splits across two lines, a month grid loses Monday and
+Sunday.
 
-So every scaled value that can outgrow its box carries a **ceiling relative to
-that box**, in container units. The token stays the intent; the ceiling keeps it
+So every scaled value that can outgrow its box carries a ceiling relative to
+that box, in container units. The token stays the intent; the ceiling keeps it
 honest at the extremes:
 
 | Rule | Why |
@@ -147,19 +154,22 @@ gone), and sections of a surface that overlap.
 
 ## The guardrails
 
-**1. Coverage gate (build).** `npm run design:check` — also wired into `build`.
-It runs `scripts/__tests__/parser.test.mjs` first, which pins the selector cases
-that used to slip past: whitespace as a combinator, spaces inside an attribute,
+### Coverage gate (build)
+
+`npm run design:check`, which is also wired into `build`. It runs
+`scripts/__tests__/parser.test.mjs` first, which pins the selector cases that
+used to slip past: whitespace as a combinator, spaces inside an attribute,
 `:has()` and `:nth-child(… of …)` as conditions, and an unsupported operator
 throwing instead of passing quietly.
+
 Every slot a component declares must be governed by a family or carry an
 explicit disposition in `dispositions.json`. It fails on a new unclassified
 component, on a family rule pointing at a slot that no longer exists, and on a
 stale disposition.
 
 A textual mention is not enrollment: a slot used as an ancestor, a condition or
-an exclusion does not count. Only the **subject** of a rule inside a family
-block does.
+an exclusion does not count. Only the subject of a rule inside a family block
+does.
 
 ```
 Design coverage
@@ -172,15 +182,17 @@ Design coverage
 Those 94 are painted parts with no treatment yet. They are deliberately kept
 visible so *new* debt cannot hide among them, and they do not block the build.
 
-**2. Runtime audit (dev).** Exposed as `designAudit()` and `designIssues()` in
-the console for an on-demand run. The gate proves everything is classified; it cannot
-prove the result looks right. The audit measures real boxes and reports when a
-control is off its contract, when a uniform row disagrees on height or corners,
-or when a nested corner does not relate to its container.
+### Runtime audit (dev)
+
+Exposed as `designAudit()` and `designIssues()` in the console for an on-demand
+run. The gate proves everything is classified; it cannot prove the result looks
+right. The audit measures real boxes and reports when a control is off its
+contract, when a uniform row disagrees on height or corners, or when a nested
+corner does not relate to its container.
 
 It only inspects rows that declare they hold controls (`.ui-controls`,
 `.ui-toolbar`, `.ui-actions`). `.ui-row` promises a gap, not equal dimensions.
-It compares against the **contract**, not only between siblings, so two equally
+It compares against the contract, not only between siblings, so two equally
 wrong controls no longer pass. And it watches the DOM, so opening a menu or
 mounting a tab is checked too.
 
@@ -203,31 +215,33 @@ There are five, each deliberate:
 
 `compat.css` holds the narrow set of upstream `!important` utilities the engine
 has to defeat. Specificity cannot beat `!important`, and for important
-declarations the layer order is reversed — which is why those corrections live
+declarations the layer order is reversed, which is why those corrections live
 in `@layer base`.
 
 ## What is controllable
 
-**Shape** — control radius, surface radius, border width, border contrast,
-shadow (soft or hard), visible borders, raised/flat/outline surfaces.
+Shape covers the control radius, the surface radius, border width, border
+contrast, the shadow (soft or hard), which boxes show a border, and whether
+surfaces are raised, flat or outline.
 
-**Rhythm** — global density, spacing between sections, within a block and
-between controls, surface padding, control height, base text size.
+Rhythm covers global density, the spacing between sections, within a block and
+between controls, surface padding, control height and base text size.
 
-**Relationships** — which side the icon sits on, how action groups align,
+Relationships cover which side the icon sits on, how action groups align,
 whether labels sit above or beside the field, which side navigation is on,
-which side the check falls on in menus, title alignment, uppercase labels,
-interface typeface.
+which side the check falls on in menus, title alignment, uppercase labels and
+the interface typeface.
 
-**Colour and motion** — accent, edge contrast, light/dark, animation.
+Colour and motion cover the accent, edge contrast, light or dark, and
+animation.
 
 The four presets (`Minimal`, `Brutalist`, `Editorial`, `Terminal`) are just four
 combinations of those values. Same components, no JSX touched.
 
 ## What the guardrails have caught
 
-Not hypothetical — each of these was found by the checks themselves, after the
-architecture was already "done":
+Each of these was found by the checks themselves, after the architecture was
+already "done":
 
 | Found by | What it was |
 |---|---|
@@ -235,9 +249,9 @@ architecture was already "done":
 | Coverage gate | Enrolling a slot in a family silently left a stale entry in the registry |
 | Runtime audit | `select-trigger` had 36px of room for 38px of content: its own vertical padding ate the space the text needed |
 | Runtime audit | `transition-all` was animating `border-radius`, leaving tab corners frozen at 7px when the value should have been 0. Shape and size no longer transition |
-| Review | The vertical-group rule was not scoped to control groups, so every child of anything with `data-orientation="vertical"` got a control height — which is why the accordion collapsed onto itself |
+| Review | The vertical-group rule was not scoped to control groups, so every child of anything with `data-orientation="vertical"` got a control height, which is why the accordion collapsed onto itself |
 | Review | The outline contract was adding borders to `tabs-list` and `toggle-group`, which paint a fill and not a frame |
-| Review | The audit's own probe was mutating `body`, and the observer watching `body` rescheduled the audit from it — an endless loop |
+| Review | The audit's own probe was mutating `body`, and the observer watching `body` rescheduled the audit from it, so it ran forever |
 
 ## What the guardrails do and do not prove
 
@@ -246,7 +260,7 @@ narrow one:
 
 | The gate | proves | does not prove |
 |---|---|---|
-| Coverage | every slot it can see is governed or dispositioned | that a disposition is *true* — an `adapter` naming a file is not checked against that file |
+| Coverage | every slot it can see is governed or dispositioned | that a disposition is *true*. An `adapter` naming a file is not checked against that file |
 | Inventory | literal `data-slot="…"` and `slot: "…"` are found | a computed `data-slot={expr}` would be missed, and a painted box with no slot cannot be inventoried at all |
 | Membership | only the subject of a family rule enrols | joined-group member lists are repeated across four rules; CSS cannot name a selector set |
 
@@ -258,8 +272,8 @@ narrow one:
 
 One more promise worth stating narrowly: the indicator side switches the
 reserved padding and the indicator inset together, but the two derive from
-different scalars (`controlPadX` and `space`). That holds for the presets here;
-it is not a construction guarantee for arbitrary scalar combinations.
+different scalars (`controlPadX` and `space`). That holds for the presets here.
+It is not a construction guarantee for arbitrary scalar combinations.
 
 Unsupported on purpose: NavigationMenu's outer popup has no slot and keeps its
 upstream shape; vertical joined groups have known gaps and no usage here.
@@ -269,12 +283,11 @@ upstream shape; vertical joined groups have known gaps and no usage here.
 The 94 `unresolved` entries in `dispositions.json`. The gate holds them to a
 recorded set, not a ceiling: a newly parked slot fails the build by name, and a
 slot that is no longer unresolved but still listed fails too, so the debt cannot
-quietly come back. Beyond those, three policies
-are deliberately unfinished and documented rather than half-built: the full
-outline/divider/overlay border policy (only control border *width* is unified
-so far), state treatments (selected, checked, open), and the feasibility
-invariant that would catch a configuration where controls agree with each other
-but clip their own contents.
+quietly come back. Beyond those, three policies are deliberately unfinished and
+documented rather than half-built: the full outline/divider/overlay border
+policy (only control border *width* is unified so far), state treatments
+(selected, checked, open), and the feasibility invariant that would catch a
+configuration where controls agree with each other but clip their own contents.
 
 ## Generating a style from a sentence
 
@@ -283,9 +296,9 @@ luxury Swiss watch boutique") and reconfigures every knob of the engine to
 match, in 1.3 to 2.5 seconds measured against the running console. It runs on
 Jev, a model that answers typed questions rather than writing text, so it never
 invents a value: it picks from a catalog a person authored. The 29 discrete
-flags alone reach 1,128,701,952,000,000 combinations — `node
-scripts/jev/flag-space.mjs` counts them — and the continuous scalars sit on
-top of that.
+flags alone reach 1,128,701,952,000,000 combinations (`node
+scripts/jev/flag-space.mjs` counts them), and the continuous scalars sit on top
+of that.
 
 See [scripts/jev/README.md](./scripts/jev/README.md) for how the catalog is
 factored, why it takes two requests instead of one, how the questions are written,

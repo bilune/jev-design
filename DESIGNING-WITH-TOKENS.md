@@ -10,6 +10,12 @@ These notes are what surfaced while building one and then pushing it until it
 broke. They are about the decisions, not about any particular visual style.
 Everything here applies whether the result is brutalist, minimal or editorial.
 
+Since this engine was wired to a model, the person turning the dials is often
+not a person. That changes nothing below and raises the stakes on all of it: a
+rule a human would never think to break is one a generator will break on its
+first afternoon, so every guarantee here has to hold structurally rather than
+by good judgement at the keyboard.
+
 ---
 
 ## 1. A token knows nothing about the box it lands in
@@ -190,21 +196,48 @@ untreated" is worth more than a clean-looking system with unknown gaps.
 
 ## 10. A preset is a set of structural decisions, not a palette
 
-The levers that actually separate one visual language from another are less
-about colour than people expect:
-
-- Radius of controls, and of surfaces (they are different)
-- Border width **and border contrast** — hard shadows inherit their colour from
-  the border, so a thick geometry with a pale edge reads as soft, not brutal
-- Shadow: none, soft, or hard offset with no blur
-- Density, as a multiplier over every spacing value
-- Where labels sit relative to their field
-- Where actions align in a footer
-- Uppercase and tracking on labels
-- Interface typeface, including whether it is monospaced
-
 Accent colour is the lever people reach for first and the one that changes the
-least about how a UI feels.
+least about how a UI feels. What actually separates one visual language from
+another is structure, and there is far more of it than a palette suggests. This
+engine ended up at 33 continuous values and 29 discrete flags, which group into
+eight kinds of decision:
+
+- **Shape** — radius of controls and of surfaces (they are not the same value),
+  and what kind of corner it is: rounded, bevelled, notched, squircled, cut on
+  the diagonal. The radius says how much; the corner style says what.
+- **The frame** — border width and **border contrast**, whether panels are
+  bordered at all or only separated, whether a surface is raised, flat or an
+  outline, and the finish over its fill: flat, highlight, gradient, glass,
+  emitted light. Hard shadows inherit their colour from the border, so a thick
+  geometry with a pale edge reads as soft, not brutal.
+- **Rhythm** — density as a multiplier over every spacing value, plus the
+  airiness of sections, stacks, inline runs and surface padding on their own
+  ladders.
+- **Type** — three faces (interface, display, mono), a base size and a scale
+  over it, tracking on titles, labels and body separately, weights, and whether
+  labels are uppercase or small caps. Figures are their own decision: tabular,
+  lining or oldstyle.
+- **The page itself** — its canvas and ink, and what the page is made OF:
+  a texture (grid, dots, scanlines, grain), a signal degradation, an ambient
+  motion that nobody touches. This is the group least likely to appear in a
+  token list and the one that moves the feeling furthest. The engine learned
+  it the hard way: a canvas catalog can say what paper a page is printed on
+  and cannot say that a page is made of grass, so every brief about a world
+  came back white until the page was allowed a colour of its own.
+- **Structure** — which side navigation sits on and how wide, where labels sit
+  relative to their field, where actions align, which side an indicator takes,
+  how headline figures are laid out, how a row splits between panels, how far
+  the content column stretches.
+- **How data reads** — table rows ruled, striped, bare or boxed; the rule
+  between things; what sits under a figure; how a change is shown; how a chart
+  line travels and how the area under it is filled.
+- **Icons** — the family (stroke, rounded, solid, pixel, or none at all) and
+  the side. A style is allowed to have no icons: a printed book does not.
+
+Two things worth taking from the size of that list. A preset is not a theme,
+it is an interface; and the flags alone reach 1,128,701,952,000,000
+combinations (`node scripts/jev/flag-space.mjs` counts them), which is the
+reason none of this can be verified by looking at a few of them.
 
 ---
 
@@ -274,7 +307,7 @@ it that way in its own output. `possible vertical overflow` invites a look.
 7. Geometry does not animate.
 8. Leading icons follow the icon-side setting. Chevrons, checks and shortcuts do not.
 9. Register exceptions and debt by name.
-10. A preset is structure, not palette. Border contrast matters more than accent.
+10. A preset is structure, not palette: 33 values and 29 flags in eight groups. What the page is MADE of moves the feeling more than the accent does.
 11. Centre what cannot fill its box.
 12. Verify guarantees by measuring. Never let the check share the implementation's error.
 13. Keep the checks honest, or they stop being read.

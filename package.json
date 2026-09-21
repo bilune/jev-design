@@ -10,7 +10,11 @@
     "design:check": "node scripts/__tests__/parser.test.mjs && node scripts/check-design-coverage.mjs && node scripts/check-render-anchors.mjs && ./node_modules/.bin/tsx scripts/jev/bench/shapes.test.mts",
     "design:test": "node scripts/__tests__/parser.test.mjs",
     "demo:record": "tsx scripts/demo/record.mts",
-    "demo:record:4x3": "DEMO_FORMAT=4x3 tsx scripts/demo/record.mts"
+    "demo:record:4x3": "DEMO_FORMAT=4x3 tsx scripts/demo/record.mts",
+    "demo:shuffle": "tsx scripts/demo/shuffle.mts",
+    "demo:shuffle:4x3": "DEMO_FORMAT=4x3 tsx scripts/demo/shuffle.mts",
+    "demo:gallery": "tsx scripts/demo/gallery.mts",
+    "demo:gallery:4x3": "DEMO_FORMAT=4x3 tsx scripts/demo/gallery.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
